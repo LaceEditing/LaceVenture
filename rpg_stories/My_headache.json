@@ -94,6 +94,14 @@
         {
           "speaker": "DM",
           "text": "Damien pulls back the thin curtains to reveal a bustling city street. The distant rumble of traffic mixes with the chatter of early risers below, while a nearby pigeon coos softly from its perch on the windowsill. The sun glints off a neon sign across the street.\n\nThe window's glass has a faint greasy film."
+        },
+        {
+          "speaker": "Player",
+          "text": "shatter the glass"
+        },
+        {
+          "speaker": "DM",
+          "text": "A sudden crack echoes through the room as the windowpane shatters, sending shards of glass cascading down to the sidewalk below. The pigeon takes flight with a startled coo, startled by the abrupt noise.\n\nThe cool morning air rushes in, carrying with it the faint scent of exhaust and fresh-baked bread from a nearby bakery.\nWhat will you do?"
         }
       ]
     }
@@ -113,8 +121,16 @@
   },
   "narrative_memory": {
     "world_facts": [],
-    "character_development": [],
-    "relationships": [],
+    "character_development": [
+      "**Character development**:",
+      "The player character is proactive and possibly impulsive, as indicated by their action to shatter the glass.",
+      "**Plot developments**:",
+      "The pigeon's startled reaction suggests that the player character's actions have consequences, potentially alerting others to their presence or intentions"
+    ],
+    "relationships": [
+      "**Relationships**:",
+      "No direct information about relationships is provided in this excerpt."
+    ],
     "plot_developments": [],
     "player_decisions": [],
     "environment_details": [],
