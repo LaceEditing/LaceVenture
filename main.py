@@ -1,15 +1,21 @@
 ﻿from langchain_ollama import OllamaLLM
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunType
 import subprocess
 import json
 import os
 import glob
 import sys
 import re
+import hashlib
+from functools import lru_cache
 
 # Directory for storing game stories
 STORIES_DIR = "rpg_stories"
 os.makedirs(STORIES_DIR, exist_ok=True)
+
+# Response cache
+response_cache = {}
 
 
 # Terminal colors - fixed with Unicode escape sequences
@@ -117,8 +123,33 @@ If no new information was revealed, return "No new information to record."
 New information to add to memory:
 """
 
-# model_name = 'llama3'
-# model = OllamaLLM(model=model_name)
+# Simplified memory update prompt
+simplified_memory_template = """
+Based on this exchange:
+Player: {player_input}
+DM: {dm_response}
+
+Extract 1-2 key points about:
+- Character development
+- Relationships
+- Plot developments
+- Environment details
+
+Format as bullet points.
+"""
+
+
+def get_optimized_model(model_name):
+    """Get an Ollama model with optimized parameters for faster responses"""
+    return OllamaLLM(
+        model=model_name,
+        num_predict=100,  # Start with a smaller token limit
+        temperature=0.7,  # Slightly reduce randomness
+        repeat_penalty=1.1,  # Discourage repetition
+        top_k=40,  # Limit token selection for faster generation
+        top_p=0.9,  # Nucleus sampling for efficiency
+        stop=["\n\nPlayer:", "\n\nYou:"],  # Help model know when to stop
+    )
 
 
 def get_available_ollama_models():
@@ -179,10 +210,11 @@ def get_available_ollama_models():
         # Return some default models that are likely to be available
         return ["llama3", "mistral-small", "dolphin-mixtral", "gemma", "llama2"]
 
-def colored_print(text, color, slow=False):
+
+def colored_print(text, color, slow=False, end='\n', flush=False):
     """Print text with color, never using slow printing"""
     colored_text = f"{color}{text}{Colors.RESET}"
-    print(colored_text)
+    print(colored_text, end=end, flush=flush)
 
 
 def get_story_path(story_name):
@@ -203,7 +235,6 @@ def init_game_state(player_input):
     tone = player_input["tone"]
     rating = player_input["rating"]
     plot_pace = player_input["plot_pace"]
-
 
     # Create default game state
     game_state = {
@@ -369,6 +400,68 @@ def delete_story(story_name):
     return False
 
 
+def generate_simplified_context(game_state, max_history=4):
+    """Generate a more concise context to reduce model processing time"""
+    context = ""
+
+    # Add essential game info only
+    context += f"Game: {game_state['game_info']['title']}\n"
+    context += f"World: {game_state['game_info']['world_name']}\n"
+    context += f"Genre: {game_state['game_info']['genre']}\n"
+    context += f"Rating: {game_state['game_info'].get('rating', 'T')}\n"
+    context += f"Plot Pacing: {game_state['game_info'].get('plot_pace', 'Balanced')}\n"
+
+    # Add current location info - simplified
+    current_loc_id = game_state['game_info']['current_location']
+    location = game_state['locations'][current_loc_id]
+    context += f"Current location: {location['name']} - {location['description']}\n"
+
+    # Add only NPCs present at location - brief descriptions
+    if location['npcs_present']:
+        context += "NPCs present:\n"
+        for npc_id in location['npcs_present']:
+            npc = game_state['npcs'][npc_id]
+            context += f"- {npc['name']}: {npc['description']}, {npc['disposition']}, {npc['dialogue_style']}\n"
+
+    # Add current quest info (simplified)
+    current_quest_id = game_state['game_info']['current_quest']
+    if current_quest_id:
+        quest = game_state['quests'][current_quest_id]
+        context += f"\nCurrent quest: {quest['name']} - {quest['description']}\n"
+
+    # Add player character info - only essentials
+    pc_id = list(game_state['player_characters'].keys())[0]
+    pc = game_state['player_characters'][pc_id]
+    context += f"\nPlayer: {pc['name']}, {pc['race']} {pc['class']}\n"
+    if 'character_traits' in pc:
+        context += f"Traits: {', '.join(pc['character_traits'])}\n"
+
+    # Add condensed narrative memory
+    context += "\n=== MEMORY ===\n"
+
+    # Add only key memory categories
+    important_categories = ['plot_developments', 'character_development', 'relationships']
+    for category in important_categories:
+        if game_state['narrative_memory'][category]:
+            items = game_state['narrative_memory'][category][-3:]  # Only last 3 items
+            context += f"{category.replace('_', ' ').title()}:\n"
+            for item in items:
+                context += f"- {item}\n"
+
+    # Add recent conversation history - fewer exchanges
+    context += "\nRecent conversation:\n"
+    all_exchanges = []
+    for session in game_state['conversation_history']:
+        all_exchanges.extend(session['exchanges'])
+
+    # Get the most recent exchanges but limit to max_history
+    recent_exchanges = all_exchanges[-max_history:] if len(all_exchanges) > max_history else all_exchanges
+    for exchange in recent_exchanges:
+        context += f"{exchange['speaker']}: {exchange['text']}\n"
+
+    return context
+
+
 def generate_context(game_state, max_history=8):
     """Generate context string from game state for the LLM, with enhanced detail recall"""
     context = ""
@@ -481,6 +574,109 @@ def generate_context(game_state, max_history=8):
         context += f"{exchange['speaker']}: {exchange['text']}\n"
 
     return context
+
+
+@lru_cache(maxsize=50)
+def get_cached_response(context_hash, player_input):
+    """Get a cached response if available"""
+    key = (context_hash, player_input)
+    return response_cache.get(key)
+
+
+def cache_response(context_hash, player_input, response):
+    """Cache a response for future use"""
+    key = (context_hash, player_input)
+    response_cache[key] = response
+
+
+def generate_streaming_response(model, prompt_vars):
+    """Generate a streaming response from the model to display tokens as they're generated"""
+    # Create chain with streaming option
+    prompt = ChatPromptTemplate.from_template(dm_template)
+    chain = prompt | model
+
+    # Start a streaming response
+    sys.stdout.write(f"{Colors.DM_NAME}DM: {Colors.RESET}")
+    sys.stdout.flush()
+
+    full_response = ""
+    for chunk in chain.stream(prompt_vars, run_type=RunType.llm):
+        # Print each token as it arrives
+        chunk_text = str(chunk.content)
+        full_response += chunk_text
+        colored_print(chunk_text, Colors.DM_TEXT, end='', flush=True)
+
+    # Print a new line at the end
+    print()
+
+    return full_response
+
+
+def optimize_memory_updates(game_state, player_input, dm_response, model, plot_pace="Balanced"):
+    """A more efficient memory extraction system that reduces processing time"""
+    # Only update memory after X number of exchanges to reduce processing overhead
+    if len(game_state['conversation_history'][-1]['exchanges']) % 3 != 0:  # Only process every 3rd exchange
+        return {}, []
+
+    # Create a simpler prompt for memory extraction
+    simple_prompt = f"""
+    Based on this exchange:
+    Player: {player_input}
+    DM: {dm_response}
+
+    Extract 1-2 key points about:
+    - Character development
+    - Relationships
+    - Plot developments
+    - Environment details
+
+    Format as bullet points.
+    """
+
+    # Get memory updates with a shorter, more focused prompt
+    try:
+        memory_prompt = ChatPromptTemplate.from_template(simple_prompt)
+        memory_chain = memory_prompt | model
+        memory_response = memory_chain.invoke({})
+
+        # Simple parser for bullet points
+        updates = {
+            "world_facts": [],
+            "character_development": [],
+            "relationships": [],
+            "plot_developments": [],
+            "player_decisions": [],
+            "environment_details": [],
+            "conversation_details": []
+        }
+
+        # Basic parsing - much faster than regex
+        for line in memory_response.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+
+            if "character" in line.lower() or "develop" in line.lower():
+                updates["character_development"].append(line.replace('-', '').strip())
+            elif "relation" in line.lower():
+                updates["relationships"].append(line.replace('-', '').strip())
+            elif "plot" in line.lower():
+                updates["plot_developments"].append(line.replace('-', '').strip())
+            elif "environ" in line.lower() or "location" in line.lower():
+                updates["environment_details"].append(line.replace('-', '').strip())
+
+        # Identify important updates - drastically simplified
+        important_updates = []
+        for category in ["plot_developments", "character_development"]:
+            for item in updates.get(category, []):
+                if "major" in item.lower() or "significant" in item.lower():
+                    important_updates.append(f"{category.replace('_', ' ').title()}: {item}")
+
+        return updates, important_updates
+
+    except Exception as e:
+        print(f"Error extracting memory: {e}")
+        return {}, []
 
 
 def extract_memory_updates(player_input, dm_response, current_memory, model, plot_pace="Balanced"):
@@ -748,11 +944,11 @@ def update_game_state(game_state, player_input, dm_response, model):
     # Get plot pacing preference
     plot_pace = game_state['game_info'].get('plot_pace', 'Balanced')
 
-    # Extract and update narrative memory - now returns important updates separately
-    memory_updates, important_updates = extract_memory_updates(
+    # Use optimized memory updates for faster processing
+    memory_updates, important_updates = optimize_memory_updates(
+        game_state,
         player_input,
         dm_response,
-        game_state['narrative_memory'],
         model,
         plot_pace
     )
@@ -1094,7 +1290,7 @@ def manage_stories():
 
 def handle_game():
     """Main game loop with story selection"""
-    colored_print("\n=== DUNGEON MASTER AI ===\n", Colors.SYSTEM)
+    colored_print("\n=== LACE'S AIDVENTURE GAME ===\n", Colors.SYSTEM)
     colored_print("1. Create a new story", Colors.SYSTEM)
     colored_print("2. Load an existing story", Colors.SYSTEM)
     colored_print("3. Manage stories", Colors.SYSTEM)
@@ -1121,8 +1317,8 @@ def handle_game():
         game_state = init_game_state(player_input)
         story_name = player_input["story_title"]
 
-        # Initialize the model with player's choice
-        model = OllamaLLM(model=game_state["game_info"]["model_name"])
+        # Initialize the optimized model with player's choice
+        model = get_optimized_model(game_state["game_info"]["model_name"])
 
         # Create a custom prompt for this story
         prompt = ChatPromptTemplate.from_template(dm_template)
@@ -1130,10 +1326,11 @@ def handle_game():
 
         # Generate initial narration
         colored_print("\nCreating your world...", Colors.SYSTEM)
-        context = generate_context(game_state)
+        context = generate_simplified_context(game_state)
         initial_prompt = "Please provide a brief introduction to this world and the beginning of my adventure."
 
-        intro_response = chain.invoke({
+        # Generate streaming initial response
+        prompt_vars = {
             'genre': game_state['game_info']['genre'],
             'world_name': game_state['game_info']['world_name'],
             'setting_description': game_state['game_info']['setting'],
@@ -1142,7 +1339,9 @@ def handle_game():
             'plot_pace': game_state['game_info']['plot_pace'],
             'context': context,
             'question': initial_prompt
-        })
+        }
+
+        intro_response = generate_streaming_response(model, prompt_vars)
 
         # Add the intro to conversation history
         game_state['conversation_history'][0]['exchanges'].append(
@@ -1153,10 +1352,10 @@ def handle_game():
         )
 
         # Add initial narrative memory (silently)
-        initial_memory, important_updates = extract_memory_updates(
+        initial_memory, important_updates = optimize_memory_updates(
+            game_state,
             initial_prompt,
             intro_response,
-            game_state['narrative_memory'],
             model,
             game_state['game_info']['plot_pace']
         )
@@ -1169,10 +1368,6 @@ def handle_game():
 
         # Save the initial game state
         save_game_state(game_state, story_name)
-
-        sys.stdout.write(f"{Colors.DM_NAME}DM: {Colors.RESET}")
-        colored_print(intro_response, Colors.DM_TEXT)
-
 
     elif choice == "2":
         # Load existing story
@@ -1191,7 +1386,6 @@ def handle_game():
         if story_choice.isdigit() and 1 <= int(story_choice) <= len(stories):
             file_name, story_name = stories[int(story_choice) - 1]
         else:
-
             # Try to find by name
             matched = False
             for file_name, title in stories:
@@ -1214,8 +1408,8 @@ def handle_game():
         # Only proceed if game_state is successfully loaded
         model_name = game_state["game_info"].get("model_name", "mistral-small")
 
-        # Initialize the model with the saved choice
-        model = OllamaLLM(model=model_name)
+        # Initialize the optimized model with the saved choice
+        model = get_optimized_model(model_name)
 
         # Check if model name exists in game state, and if not (for backwards compatibility), ask user to choose
         if "model_name" not in game_state["game_info"]:
@@ -1233,36 +1427,14 @@ def handle_game():
                 if model_choice.isdigit() and 1 <= int(model_choice) <= len(available_models):
                     selected_model = available_models[int(model_choice) - 1]
                     game_state["game_info"]["model_name"] = selected_model
-                    model = OllamaLLM(model=selected_model)
+                    model = get_optimized_model(selected_model)
                     break
                 elif model_choice in available_models:
                     game_state["game_info"]["model_name"] = model_choice
-                    model = OllamaLLM(model=model_choice)
+                    model = get_optimized_model(model_choice)
                     break
                 else:
                     colored_print("Invalid choice. Please select a valid model.", Colors.SYSTEM)
-
-        # Handle selection by number or name
-        if story_choice.isdigit() and 1 <= int(story_choice) <= len(stories):
-            file_name, story_name = stories[int(story_choice) - 1]
-        else:
-            # Try to find by name
-            matched = False
-            for file_name, title in stories:
-                if story_choice.lower() in file_name.lower() or story_choice.lower() in title.lower():
-                    story_name = title
-                    matched = True
-                    break
-
-            if not matched:
-                colored_print("Story not found.", Colors.SYSTEM)
-                return
-
-        # Load the selected story
-        game_state = load_game_state(file_name)
-        if not game_state:
-            colored_print("Error loading story.", Colors.SYSTEM)
-            return
 
         story_name = game_state['game_info']['title']
         colored_print(f"\nLoaded story: {story_name}", Colors.SYSTEM)
@@ -1330,10 +1502,10 @@ def handle_game():
                     dm_response = all_exchanges[i + 1]['text']
 
                     # Extract memory updates
-                    memory_updates, _ = extract_memory_updates(
+                    memory_updates, _ = optimize_memory_updates(
+                        game_state,
                         player_input,
                         dm_response,
-                        game_state['narrative_memory'],
                         model,
                         game_state['game_info'].get('plot_pace', 'Balanced')
                     )
@@ -1351,10 +1523,6 @@ def handle_game():
             game_state['narrative_memory']['environment_details'] = []
         if 'conversation_details' not in game_state['narrative_memory']:
             game_state['narrative_memory']['conversation_details'] = []
-
-        # Create a custom prompt for this story
-        prompt = ChatPromptTemplate.from_template(dm_template)
-        chain = prompt | model
 
         # Show last exchange
         if (game_state['conversation_history'] and
@@ -1453,23 +1621,36 @@ def handle_game():
         # Clear previous important updates
         game_state['important_updates'] = []
 
-        # Generate context from game state
-        context = generate_context(game_state)
+        # Generate simplified context from game state
+        context = generate_simplified_context(game_state)
 
-        # Get DM response
-        dm_response = chain.invoke({
-            'genre': game_state['game_info']['genre'],
-            'world_name': game_state['game_info']['world_name'],
-            'setting_description': game_state['game_info']['setting'],
-            'tone': game_state['game_info']['tone'],
-            'rating': game_state['game_info']['rating'],
-            'plot_pace': game_state['game_info']['plot_pace'],
-            'context': context,
-            'question': player_input
-        })
+        # Calculate context hash for caching
+        context_hash = hashlib.md5(context.encode()).hexdigest()
 
-        sys.stdout.write(f"{Colors.DM_NAME}DM: {Colors.RESET}")
-        colored_print(dm_response, Colors.DM_TEXT)
+        # Check for cached response
+        cached_response = get_cached_response(context_hash, player_input)
+        if cached_response:
+            dm_response = cached_response
+            sys.stdout.write(f"{Colors.DM_NAME}DM: {Colors.RESET}")
+            colored_print(dm_response, Colors.DM_TEXT)
+        else:
+            # Setup prompt variables
+            prompt_vars = {
+                'genre': game_state['game_info']['genre'],
+                'world_name': game_state['game_info']['world_name'],
+                'setting_description': game_state['game_info']['setting'],
+                'tone': game_state['game_info']['tone'],
+                'rating': game_state['game_info']['rating'],
+                'plot_pace': game_state['game_info'].get('plot_pace', 'Balanced'),
+                'context': context,
+                'question': player_input
+            }
+
+            # Generate streaming response
+            dm_response = generate_streaming_response(model, prompt_vars)
+
+            # Cache the response for future use
+            cache_response(context_hash, player_input, dm_response)
 
         # Update game state with silent memory tracking
         game_state = update_game_state(game_state, player_input, dm_response, model)
