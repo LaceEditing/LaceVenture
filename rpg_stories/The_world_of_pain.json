@@ -1,0 +1,154 @@
+{
+  "game_info": {
+    "title": "The world of pain",
+    "world_name": "Pain",
+    "genre": "Mystery",
+    "setting": "It's just like real life",
+    "tone": "Dark and Romantic",
+    "rating": "M",
+    "plot_pace": "Slice-of-life",
+    "game_system": "Mystery RPG",
+    "session_count": 1,
+    "current_location": "starting_location",
+    "current_quest": "main_quest",
+    "time_of_day": "morning",
+    "days_passed": 0,
+    "model_name": "llama3.3:latest"
+  },
+  "player_characters": {
+    "hero": {
+      "name": "Carl",
+      "race": "Human",
+      "class": "Office Worker",
+      "level": 1,
+      "abilities": [
+        "perception",
+        "persuasion"
+      ],
+      "inventory": [
+        "basic_equipment",
+        "rations"
+      ],
+      "health": 20,
+      "max_health": 20,
+      "gold": 15,
+      "experience": 0,
+      "relationships": {},
+      "quests": [
+        "main_quest"
+      ],
+      "character_traits": [
+        "Persuasive",
+        "Charming",
+        "Attractive"
+      ]
+    }
+  },
+  "npcs": {
+    "npc_stacey": {
+      "name": "Stacey",
+      "race": "Human",
+      "description": "An attractive young woman",
+      "location": "starting_location",
+      "disposition": "friendly",
+      "motivation": "kissing Carl",
+      "knowledge": [],
+      "relationships": {},
+      "dialogue_style": "Romantic and Flirtatious"
+    }
+  },
+  "locations": {
+    "starting_location": {
+      "name": "Carl's House",
+      "description": "It's where Carl lives",
+      "ambience": "The environment sets the mood for your adventure.",
+      "connected_to": [],
+      "npcs_present": [
+        "npc_stacey"
+      ],
+      "points_of_interest": [],
+      "secrets": [],
+      "available_quests": [
+        "main_quest"
+      ],
+      "visited": true
+    }
+  },
+  "items": {},
+  "quests": {
+    "main_quest": {
+      "name": "Find some friends",
+      "description": "It's time to expand your social circle",
+      "status": "active",
+      "giver": "narrator",
+      "steps": [
+        {
+          "id": "begin_adventure",
+          "description": "Start your adventure",
+          "completed": false
+        }
+      ],
+      "difficulty": "beginner",
+      "time_sensitive": false
+    }
+  },
+  "conversation_history": [
+    {
+      "session": 1,
+      "exchanges": [
+        {
+          "speaker": "Player",
+          "text": "Please provide a brief introduction to this world and the beginning of my adventure."
+        },
+        {
+          "speaker": "DM",
+          "text": "Morning sunlight seeps through the blinds, casting a warm glow on Stacey's face as she lounges on your couch, her eyes fixed on you with an inviting smile. The air is filled with the aroma of freshly brewed coffee, and the sound of birds chirping outside creates a sense of tranquility. What will you do?"
+        }
+      ]
+    }
+  ],
+  "world_facts": [
+    "It's just like real life"
+  ],
+  "story_arcs": {
+    "main_arc": {
+      "description": "The main storyline",
+      "status": "active",
+      "related_quests": [
+        "main_quest"
+      ],
+      "plot_twists": []
+    }
+  },
+  "narrative_memory": {
+    "world_facts": [
+      "None",
+      "2."
+    ],
+    "character_development": [
+      "Stacey exists, smiles at player",
+      "3."
+    ],
+    "relationships": [
+      "Stacey knows player",
+      "4."
+    ],
+    "plot_developments": [
+      "None",
+      "5. Important decisions: None",
+      "6."
+    ],
+    "player_decisions": [
+      "None",
+      "6."
+    ],
+    "environment_details": [
+      "Couch, blinds, coffee, birds outside",
+      "7."
+    ],
+    "conversation_details": [
+      "None"
+    ]
+  },
+  "important_updates": []
+}
