@@ -806,7 +806,7 @@ class LaceAIdventureGUI(QMainWindow):
         layout.setSpacing(15)  # More space between elements
 
         # Add a subtitle
-        subtitle_label = QLabel("Interactive AI-Powered Text Adventures")
+        subtitle_label = QLabel("Ethically ran, locally hosted AI text-adventures with no limitations.")
         subtitle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         subtitle_font = QFont()
         subtitle_font.setPointSize(16)
