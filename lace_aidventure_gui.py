@@ -30,10 +30,13 @@ os.makedirs(STORIES_DIR, exist_ok=True)
 response_cache = {}
 
 # Terminal colors for the DM output
-SYSTEM_COLOR = "#4CAF50"  # Green
-DM_NAME_COLOR = "#00BCD4"  # Cyan
-DM_TEXT_COLOR = "#80DEEA"  # Light Cyan
-PLAYER_COLOR = "#FFC107"  # Amber
+SYSTEM_COLOR = "#6A4C93"    # Darkened deep lavender for better contrast
+DM_NAME_COLOR = "#7E57C2"   # Darkened medium lavender
+DM_TEXT_COLOR = "#5D4777"   # Darkened light lavender for better readability
+PLAYER_COLOR = "#9C3587"    # Darker purple/pink
+HIGHLIGHT_COLOR = "#4A2D7D" # Darker purple for highlights
+BG_COLOR = "#F5F0FF"        # Keep light lavender background
+ACCENT_COLOR = "#8046CC"    # Darker accent color for buttons
 
 # Adjusted DM prompt template with improved role clarity
 dm_template = """
@@ -865,14 +868,27 @@ class StreamingTextDisplay(QTextEdit):
         super().__init__(parent)
         self.setReadOnly(True)
         self.setMinimumHeight(300)
+
+        # Create text formats with better contrast
         self.system_format = QTextCharFormat()
         self.system_format.setForeground(QColor(SYSTEM_COLOR))
+        self.system_format.setFontWeight(QFont.Weight.Bold)
+
         self.dm_name_format = QTextCharFormat()
         self.dm_name_format.setForeground(QColor(DM_NAME_COLOR))
+        self.dm_name_format.setFontWeight(QFont.Weight.Bold)
+
         self.dm_text_format = QTextCharFormat()
-        self.dm_text_format.setForeground(QColor(DM_TEXT_COLOR))
+        self.dm_text_format.setForeground(QColor("#5D4777"))  # Darker text color
+
         self.player_format = QTextCharFormat()
         self.player_format.setForeground(QColor(PLAYER_COLOR))
+        self.player_format.setFontWeight(QFont.Weight.Bold)
+
+        # Set a default font size
+        default_font = self.font()
+        default_font.setPointSize(12)
+        self.setFont(default_font)
 
     def append_system_message(self, text):
         """Add a system message with green text"""
@@ -1114,6 +1130,21 @@ class StoryCreationWizard(QWidget):
         # NPCs list
         self.npcs_list = QListWidget()
         npc_layout.addWidget(QLabel("Added NPCs:"))
+        self.npcs_list.setStyleSheet(f"""
+            QListWidget {{ 
+                background-color: white;
+                border: 1px solid {DM_NAME_COLOR};
+                border-radius: 5px;
+                padding: 5px;
+                color: #4A2D7D;  /* Darker text for list items */
+            }}
+            QListWidget::item {{ padding: 5px; }}
+            QListWidget::item:selected {{ 
+                background-color: {DM_NAME_COLOR}; 
+                color: white; 
+            }}
+        """)
+
         npc_layout.addWidget(self.npcs_list)
 
         # NPC form
@@ -1466,10 +1497,102 @@ class LaceAIdventureGUI(QMainWindow):
         self.setWindowTitle("Lace's AIdventure Game")
         self.setMinimumSize(900, 700)
 
+        # Set application style
+        self.setStyleSheet(f"""
+            QMainWindow, QWidget, QDialog {{ background-color: {BG_COLOR}; }}
+            QLabel {{ color: #4A2D7D; font-weight: 450; }}
+
+            /* Tab styling for better readability */
+            QTabBar::tab {{
+                background-color: #E1D4F2;       /* Light purple background */
+                color: #3A1E64;                  /* Dark purple text */
+                border: 1px solid {DM_NAME_COLOR};
+                border-bottom: none;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+                padding: 8px 15px;
+                margin-right: 2px;
+                font-weight: bold;
+            }}
+
+            QTabBar::tab:selected {{
+                background-color: {DM_NAME_COLOR};
+                color: white;                    /* White text on purple background */
+                border: 1px solid {HIGHLIGHT_COLOR};
+                border-bottom: none;
+            }}
+
+            QTabBar::tab:hover:!selected {{
+                background-color: #C9B6E4;       /* Medium purple for hover */
+            }}
+
+            QPushButton {{
+                background-color: {ACCENT_COLOR}; 
+                color: white; 
+                border-radius: 6px; 
+                padding: 8px;
+                margin: 4px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{ background-color: {HIGHLIGHT_COLOR}; }}
+
+            QGroupBox {{ 
+                border: 1px solid {DM_NAME_COLOR}; 
+                border-radius: 8px; 
+                margin-top: 12px; 
+                padding: 8px;
+            }}
+            QGroupBox::title {{ 
+                color: {HIGHLIGHT_COLOR}; 
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                font-weight: bold;
+            }}
+
+            QTabWidget::pane {{ 
+                border: 1px solid {DM_NAME_COLOR}; 
+                border-radius: 8px; 
+                padding: 5px;
+            }}
+
+            QLineEdit, QTextEdit, QComboBox {{ 
+                border: 1px solid {DM_NAME_COLOR}; 
+                color: #2D1A53;  /* Dark text for inputs */
+                border-radius: 4px; 
+                padding: 4px; 
+                background-color: white;
+            }}
+
+            QScrollArea {{ 
+                border: none; 
+                background-color: {BG_COLOR};
+            }}
+
+            QListWidget, QListView {{ 
+                color: #4A2D7D;  /* Darker text for lists */
+                background-color: white;
+                border: 1px solid {DM_NAME_COLOR};
+                border-radius: 5px;
+                padding: 5px;
+            }}
+
+            QListWidget::item, QListView::item {{ 
+                padding: 5px; 
+            }}
+
+            QListWidget::item:selected, QListView::item:selected {{ 
+                background-color: {DM_NAME_COLOR}; 
+                color: white; 
+            }}
+        """)
+
         # Create the central widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(12, 12, 12, 12)  # Add more padding around edges
+        main_layout.setSpacing(10)  # More space between elements
 
         # Create tab widget for different screens
         self.tabs = QTabWidget()
@@ -1500,14 +1623,17 @@ class LaceAIdventureGUI(QMainWindow):
         """Create the main menu interface"""
         tab = QWidget()
         layout = QVBoxLayout(tab)
+        layout.setContentsMargins(20, 20, 20, 20)  # Add more padding
+        layout.setSpacing(15)  # More space between elements
 
         # Add title label
         title_label = QLabel("Lace's AIdventure Game")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_font = QFont()
-        title_font.setPointSize(24)
+        title_font.setPointSize(28)
         title_font.setBold(True)
         title_label.setFont(title_font)
+        title_label.setStyleSheet(f"color: {HIGHLIGHT_COLOR}; margin-bottom: 10px;")
         layout.addWidget(title_label)
 
         # Add a subtitle
@@ -1516,6 +1642,7 @@ class LaceAIdventureGUI(QMainWindow):
         subtitle_font = QFont()
         subtitle_font.setPointSize(16)
         subtitle_label.setFont(subtitle_font)
+        subtitle_label.setStyleSheet(f"color: {DM_NAME_COLOR}; margin-bottom: 20px;")
         layout.addWidget(subtitle_label)
 
         # Add some spacing
@@ -1523,18 +1650,41 @@ class LaceAIdventureGUI(QMainWindow):
 
         # Create a container for the buttons with fixed width
         button_container = QWidget()
-        button_container.setFixedWidth(300)
+        button_container.setFixedWidth(350)  # Wider buttons
         button_layout = QVBoxLayout(button_container)
+        button_layout.setSpacing(15)  # More space between buttons
+
+        # Custom button style
+        button_style = f"""
+            QPushButton {{
+                background-color: {DM_NAME_COLOR}; 
+                color: white; 
+                border-radius: 8px; 
+                padding: 12px;
+                font-size: 16px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: {HIGHLIGHT_COLOR};
+            }}
+        """
 
         # Add buttons for main menu options
         new_story_button = QPushButton("Create New Story")
-        new_story_button.setMinimumHeight(50)
+        new_story_button.setMinimumHeight(60)
+        new_story_button.setStyleSheet(button_style)
+
         load_story_button = QPushButton("Load Existing Story")
-        load_story_button.setMinimumHeight(50)
+        load_story_button.setMinimumHeight(60)
+        load_story_button.setStyleSheet(button_style)
+
         manage_stories_button = QPushButton("Manage Stories")
-        manage_stories_button.setMinimumHeight(50)
+        manage_stories_button.setMinimumHeight(60)
+        manage_stories_button.setStyleSheet(button_style)
+
         exit_button = QPushButton("Exit")
-        exit_button.setMinimumHeight(50)
+        exit_button.setMinimumHeight(60)
+        exit_button.setStyleSheet(button_style)
 
         # Connect signals to slots
         new_story_button.clicked.connect(self.show_story_creation)
@@ -1559,43 +1709,99 @@ class LaceAIdventureGUI(QMainWindow):
         """Create the game interface"""
         tab = QWidget()
         layout = QVBoxLayout(tab)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(10)
 
         # Create a splitter for resizable panels
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setHandleWidth(8)  # Wider handle for easier resizing
+        splitter.setStyleSheet(f"QSplitter::handle {{ background-color: {DM_NAME_COLOR}; }}")
 
         # Create the game display panel
         game_panel = QWidget()
+        game_panel.setStyleSheet(f"background-color: #FFFFFF; border-radius: 10px;")
         game_layout = QVBoxLayout(game_panel)
+        game_layout.setContentsMargins(12, 12, 12, 12)
+        game_layout.setSpacing(10)
 
         # Create the text display area
         self.text_display = StreamingTextDisplay()
+        self.text_display.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: white;
+                border: 1px solid {DM_NAME_COLOR};
+                border-radius: l0px;
+                padding: 10px;
+                font-size: 14px;
+            }}
+        """)
         game_layout.addWidget(self.text_display)
 
         # Create the input area
         input_layout = QHBoxLayout()
+        input_layout.setSpacing(8)
+
         self.input_field = QLineEdit()
         self.input_field.setPlaceholderText("Enter your command...")
+        self.input_field.setMinimumHeight(40)
+        self.input_field.setStyleSheet(f"""
+            QLineEdit {{
+                border: 2px solid {DM_NAME_COLOR};
+                border-radius: 8px;
+                padding: 8px;
+                font-size: 14px;
+            }}
+            QLineEdit:focus {{ border-color: {HIGHLIGHT_COLOR}; }}
+        """)
         self.input_field.returnPressed.connect(self.process_input)
+
         self.send_button = QPushButton("Send")
+        self.send_button.setMinimumHeight(40)
+        self.send_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DM_NAME_COLOR};
+                color: white;
+                border-radius: 8px;
+                padding: 8px 20px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{ background-color: {HIGHLIGHT_COLOR}; }}
+        """)
         self.send_button.clicked.connect(self.process_input)
 
-        input_layout.addWidget(self.input_field)
-        input_layout.addWidget(self.send_button)
+        input_layout.addWidget(self.input_field, 7)  # 70% of space
+        input_layout.addWidget(self.send_button, 3)  # 30% of space
         game_layout.addLayout(input_layout)
 
         # Create the command buttons
         cmd_layout = QHBoxLayout()
+        cmd_layout.setSpacing(10)
+
+        button_style = f"""
+            QPushButton {{
+                background-color: {ACCENT_COLOR};
+                color: white;
+                border-radius: 6px;
+                padding: 8px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{ background-color: {HIGHLIGHT_COLOR}; }}
+        """
 
         self.save_button = QPushButton("Save")
+        self.save_button.setStyleSheet(button_style)
         self.save_button.clicked.connect(self.save_game)
 
         self.memory_button = QPushButton("Memory")
+        self.memory_button.setStyleSheet(button_style)
         self.memory_button.clicked.connect(self.show_memory)
 
         self.summary_button = QPushButton("Summary")
+        self.summary_button.setStyleSheet(button_style)
         self.summary_button.clicked.connect(self.show_summary)
 
         self.quit_button = QPushButton("Quit")
+        self.quit_button.setStyleSheet(button_style)
         self.quit_button.clicked.connect(self.quit_game)
 
         cmd_layout.addWidget(self.save_button)
@@ -1608,29 +1814,63 @@ class LaceAIdventureGUI(QMainWindow):
         # Create the game status panel
         status_panel = QScrollArea()
         status_panel.setWidgetResizable(True)
-        status_panel.setMinimumWidth(250)
-        status_panel.setMaximumWidth(300)
+        status_panel.setMinimumWidth(280)
+        status_panel.setMaximumWidth(350)
+        status_panel.setStyleSheet(f"""
+            QScrollArea {{ 
+                background-color: white;
+                border: 1px solid {DM_NAME_COLOR};
+                border-radius: 10px;
+            }}
+        """)
 
         status_content = QWidget()
+        status_content.setStyleSheet(f"background-color: white; padding: 10px;")
         self.status_layout = QVBoxLayout(status_content)
+        self.status_layout.setSpacing(15)  # More space between sections
+
+        group_box_style = f"""
+            QGroupBox {{ 
+                background-color: #F8F4FF;
+                border: 1px solid {DM_NAME_COLOR}; 
+                border-radius: 8px; 
+                margin-top: 12px; 
+                padding: 10px;
+            }}
+            QGroupBox::title {{ 
+                color: {HIGHLIGHT_COLOR}; 
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+                font-weight: bold;
+            }}
+        """
 
         # Game info section
         game_info_group = QGroupBox("Game Info")
+        game_info_group.setStyleSheet(group_box_style)
         game_info_layout = QVBoxLayout(game_info_group)
+        game_info_layout.setSpacing(8)
+
         self.game_title_label = QLabel("Title: ")
         self.game_world_label = QLabel("World: ")
         self.game_location_label = QLabel("Location: ")
+
         game_info_layout.addWidget(self.game_title_label)
         game_info_layout.addWidget(self.game_world_label)
         game_info_layout.addWidget(self.game_location_label)
 
         # Character info section
         character_info_group = QGroupBox("Character")
+        character_info_group.setStyleSheet(group_box_style)
         character_info_layout = QVBoxLayout(character_info_group)
+        character_info_layout.setSpacing(8)
+
         self.character_name_label = QLabel("Name: ")
         self.character_class_label = QLabel("Class: ")
         self.character_race_label = QLabel("Race: ")
         self.character_health_label = QLabel("Health: ")
+
         character_info_layout.addWidget(self.character_name_label)
         character_info_layout.addWidget(self.character_class_label)
         character_info_layout.addWidget(self.character_race_label)
@@ -1638,17 +1878,34 @@ class LaceAIdventureGUI(QMainWindow):
 
         # Quest info section
         quest_info_group = QGroupBox("Current Quest")
+        quest_info_group.setStyleSheet(group_box_style)
         quest_info_layout = QVBoxLayout(quest_info_group)
+        quest_info_layout.setSpacing(8)
+
         self.quest_name_label = QLabel("Name: ")
         self.quest_desc_label = QLabel("Description: ")
         self.quest_desc_label.setWordWrap(True)
+
         quest_info_layout.addWidget(self.quest_name_label)
         quest_info_layout.addWidget(self.quest_desc_label)
 
         # NPCs section
         npcs_group = QGroupBox("NPCs Present")
+        npcs_group.setStyleSheet(group_box_style)
         npcs_layout = QVBoxLayout(npcs_group)
+        npcs_layout.setSpacing(5)
+
         self.npcs_list = QListWidget()
+        self.npcs_list.setStyleSheet(f"""
+            QListWidget {{ 
+                background-color: white;
+                border: 1px solid {DM_TEXT_COLOR};
+                border-radius: 5px;
+                padding: 5px;
+            }}
+            QListWidget::item {{ padding: 5px; }}
+            QListWidget::item:selected {{ background-color: {DM_TEXT_COLOR}; color: white; }}
+        """)
         npcs_layout.addWidget(self.npcs_list)
 
         # Add all sections to the status layout
@@ -1669,6 +1926,20 @@ class LaceAIdventureGUI(QMainWindow):
 
         # Add the splitter to the layout
         layout.addWidget(splitter)
+
+        # After creating all the labels (around line 270-290 in create_game_tab)
+        self.game_title_label = QLabel("Title: ")
+        self.game_world_label = QLabel("World: ")
+        self.game_location_label = QLabel("Location: ")
+
+        # ADD POINT 4 CODE HERE - before adding them to the layout
+        self.game_title_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
+        self.game_world_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
+        self.game_location_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
+
+        game_info_layout.addWidget(self.game_title_label)
+        game_info_layout.addWidget(self.game_world_label)
+        game_info_layout.addWidget(self.game_location_label)
 
         return tab
 
