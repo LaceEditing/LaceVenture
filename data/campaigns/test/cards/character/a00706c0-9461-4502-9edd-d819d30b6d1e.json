@@ -1,0 +1,49 @@
+{
+  "id": "a00706c0-9461-4502-9edd-d819d30b6d1e",
+  "type": "character",
+  "name": "Test Character",
+  "creation_time": 1743180045.1458454,
+  "last_modified": 1743180045.146845,
+  "description": "A test character for the RPG system.",
+  "history": [
+    {
+      "timestamp": 1743180045.1458454,
+      "changes": {
+        "description": "A test character for the RPG system.",
+        "traits": {
+          "strength": "medium",
+          "intelligence": "high"
+        },
+        "inventory": [
+          "sword",
+          "potion"
+        ],
+        "location": "test_location"
+      },
+      "source": "initial_creation"
+    },
+    {
+      "timestamp": 1743180045.146845,
+      "changes": {
+        "traits": {
+          "strength": "high"
+        }
+      },
+      "source": "test"
+    }
+  ],
+  "traits": {
+    "strength": "high"
+  },
+  "inventory": [
+    "sword",
+    "potion"
+  ],
+  "stats": {},
+  "relationships": {},
+  "location": "test_location",
+  "status": "active",
+  "backstory": "",
+  "appearance": "",
+  "goals": []
+}

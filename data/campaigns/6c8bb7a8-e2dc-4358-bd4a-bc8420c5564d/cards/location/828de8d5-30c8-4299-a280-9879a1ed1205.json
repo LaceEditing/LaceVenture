@@ -1,0 +1,35 @@
+{
+  "id": "828de8d5-30c8-4299-a280-9879a1ed1205",
+  "type": "location",
+  "name": "Town Square",
+  "creation_time": 1743213007.6258147,
+  "last_modified": 1743213007.6258147,
+  "description": "The central gathering place in the village. A fountain bubbles in the center.",
+  "history": [
+    {
+      "timestamp": 1743213007.6258147,
+      "changes": {
+        "description": "The central gathering place in the village. A fountain bubbles in the center.",
+        "name": "Town Square",
+        "features": [
+          "fountain",
+          "market stalls",
+          "cobblestone streets"
+        ],
+        "atmosphere": "lively"
+      },
+      "source": "initial_creation"
+    }
+  ],
+  "region": "",
+  "features": [
+    "fountain",
+    "market stalls",
+    "cobblestone streets"
+  ],
+  "inhabitants": [],
+  "items": [],
+  "connections": {},
+  "atmosphere": "lively",
+  "events": []
+}

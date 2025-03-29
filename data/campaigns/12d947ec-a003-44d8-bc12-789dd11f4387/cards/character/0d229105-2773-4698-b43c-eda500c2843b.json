@@ -1,0 +1,37 @@
+{
+  "id": "0d229105-2773-4698-b43c-eda500c2843b",
+  "type": "character",
+  "name": "Old Wizard",
+  "creation_time": 1743216592.9278202,
+  "last_modified": 1743216592.9278202,
+  "description": "An elderly wizard with a long white beard and blue robes.",
+  "history": [
+    {
+      "timestamp": 1743216592.9278202,
+      "changes": {
+        "description": "An elderly wizard with a long white beard and blue robes.",
+        "name": "Old Wizard",
+        "traits": {
+          "wisdom": "high",
+          "strength": "low",
+          "magic": "powerful"
+        },
+        "location": "016a46de-f42a-479b-8247-61df0027af74"
+      },
+      "source": "initial_creation"
+    }
+  ],
+  "traits": {
+    "wisdom": "high",
+    "strength": "low",
+    "magic": "powerful"
+  },
+  "inventory": [],
+  "stats": {},
+  "relationships": {},
+  "location": "016a46de-f42a-479b-8247-61df0027af74",
+  "status": "active",
+  "backstory": "",
+  "appearance": "",
+  "goals": []
+}

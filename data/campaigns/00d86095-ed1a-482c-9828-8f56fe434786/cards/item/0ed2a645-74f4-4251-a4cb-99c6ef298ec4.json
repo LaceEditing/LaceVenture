@@ -1,0 +1,23 @@
+{
+  "id": "0ed2a645-74f4-4251-a4cb-99c6ef298ec4",
+  "type": "item",
+  "name": "Magic Scroll",
+  "creation_time": 1743216257.930699,
+  "last_modified": 1743216257.930699,
+  "description": "An ancient scroll with glowing runes.",
+  "history": [
+    {
+      "timestamp": 1743216257.930699,
+      "changes": {
+        "description": "An ancient scroll with glowing runes.",
+        "name": "Magic Scroll",
+        "location": "c734aa62-551f-4aa8-b0d7-205124dc26de"
+      },
+      "source": "initial_creation"
+    }
+  ],
+  "properties": {},
+  "owner": "",
+  "location": "c734aa62-551f-4aa8-b0d7-205124dc26de",
+  "effects": []
+}

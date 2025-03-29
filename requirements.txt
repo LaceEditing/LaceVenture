@@ -1,0 +1,12 @@
+# Core dependencies
+openai>=1.0.0
+tenacity>=8.2.2
+requests>=2.25.0
+sentence-transformers>=2.2.2
+
+# Local LLM support
+llama-cpp-python>=0.2.11  # For GGUF model support
+
+# API providers
+together>=0.2.8  # Together.ai API client
+ollama>=0.1.2    # Optional, for local API models via Ollama
