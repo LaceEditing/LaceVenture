@@ -13,7 +13,10 @@
     "current_quest": "main_quest",
     "time_of_day": "morning",
     "days_passed": 0,
-    "model_name": "llama2-uncensored:latest"
+    "model_name": "benevolentjoker/nsfwmonika:latest",
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "max_tokens": 1848
   },
   "player_characters": {
     "hero": {
@@ -126,6 +129,14 @@
         {
           "speaker": "DM",
           "text": "Ralph arrives at the caf\u00e9 where he met Sophia earlier in the day, eager to get to know her better. As he walks in, he sees that she's already there waiting for him, and they both greet each other warmly. They sit down at a table and begin talking about themselves, sharing stories and jokes to break the ice.\nAs they talk, Ralph finds himself becoming more and more attracted to Sophia - her intelligence, humor, and passion for travel make her an incredibly interesting person to be around. He can't help but feel a sense of excitement as he thinks about the possibility of this new relationship developing into something more."
+        },
+        {
+          "speaker": "Player",
+          "text": "Say \"hi sophia\""
+        },
+        {
+          "speaker": "DM",
+          "text": ""
         }
       ]
     }

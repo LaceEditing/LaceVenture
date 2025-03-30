@@ -5,15 +5,12 @@ import hashlib
 import json
 import glob
 from functools import lru_cache
-import json
-import requests
-from typing import Any, Dict, List, Optional, Union, Iterator
 
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout,
                              QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QLabel,
                              QComboBox, QListWidget, QMessageBox, QFormLayout, QSpinBox,
                              QSplitter, QScrollArea, QFrame, QDialog, QDialogButtonBox,
-                             QCheckBox, QTextBrowser, QGroupBox, QSlider, QListWidgetItem)
+                             QCheckBox, QTextBrowser, QGroupBox, QSlider)
 from PyQt6.QtGui import QFont, QColor, QTextCursor, QTextCharFormat
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QObject
 
@@ -116,63 +113,37 @@ class ModelGenerationThread(QThread):
         self.full_response = ""
 
     def run(self):
-        """Run the model generation directly without using LangChain pipelines"""
+        """Run the model generation"""
         try:
-            # Format the prompt directly instead of using LangChain
-            formatted_prompt = f"""
-    You are an experienced Dungeon Master for a {self.prompt_vars['genre']} RPG set in {self.prompt_vars['world_name']}. Your role is to:
+            prompt = rpg_engine.ChatPromptTemplate.from_template(rpg_engine.dm_template)
+            chain = prompt | self.model
 
-    1. Create an immersive world with rich descriptions that engage all senses
-    2. Portray NPCs with consistent personalities, goals, and knowledge
-    3. Present appropriate challenges and opportunities for character development
-    4. Maintain narrative continuity and remember details from previous sessions
-    5. Apply game rules fairly while prioritizing storytelling and player enjoyment
-    6. Adapt the story based on player choices to create a truly interactive experience
+            # Stream the response token by token
+            for chunk in chain.stream(self.prompt_vars):
+                # Extract text from chunk (handling different possible formats)
+                try:
+                    if hasattr(chunk, 'content'):
+                        chunk_text = str(chunk.content)
+                    elif isinstance(chunk, dict) and 'content' in chunk:
+                        chunk_text = str(chunk['content'])
+                    else:
+                        chunk_text = str(chunk)
 
-    CRITICAL OUTPUT REQUIREMENTS:
-    - BREVITY: Keep responses extremely short, 1 to 3 sentences maximum
-    - VARIETY: Never use similar sentence structures back-to-back
-    - PRECISION: Use specific, evocative details rather than general descriptions, but avoid being too verbose
-    - UNIQUENESS: Avoid reusing phrases, descriptions, or scene transitions
-    - FREEDOM: Only give the player specific choices when absolutely necessary, otherwise always simply ask "What will you do?" to end your output
-    - GAMEPLAY: The player character should never speak on their own, unless the user tells them to in their responses. You will never generate dialogue from their perspective
-
-    CONTENT RATING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['rating']}" RATING:
-    - E rating: Keep content family-friendly. Avoid graphic violence, frightening scenarios, sexual content, and strong language.
-    - T rating: Moderate content is acceptable. Some violence, dark themes, mild language, and light romantic implications allowed, but nothing explicit or graphic.
-    - M rating: Mature content is permitted. You may include graphic violence, sexual themes, intense scenarios, and strong language as appropriate to the story.
-
-    PLOT PACING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['plot_pace']}" PACING:
-    - Fast-paced: Maintain steady forward momentum with regular plot developments and challenges. Focus primarily on action, goals, and advancing the main storyline. Character development should happen through significant events rather than quiet moments. Keep the story moving forward with new developments in most scenes.
-    - Balanced: Create a rhythm alternating between plot advancement and character moments. Allow time for reflection and relationship development between significant story beats. Mix everyday interactions with moderate plot advancement. Ensure characters have time to process events before introducing new major developments.
-    - Slice-of-life: Deliberately slow down plot progression in favor of everyday moments and mundane interactions. Focus on character relationships, personal growth, and daily activities rather than dramatic events. Allow extended periods where characters simply live their lives, with minimal story progression. Prioritize small, meaningful character moments and ordinary situations. Major plot developments should be rare and spaced far apart, with emphasis on how characters experience their everyday world.
-
-    DYNAMIC WORLD CREATION:
-    You are expected to actively create new elements to build a rich, evolving world.
-
-    The adventure takes place in a {self.prompt_vars['setting_description']}. The tone is {self.prompt_vars['tone']}.
-
-    Current game state:
-    {self.prompt_vars['context']}
-
-    Player: {self.prompt_vars['question']}
-    """
-            # Try streaming first
-            try:
-                # Stream the response token by token
-                for chunk in self.model.stream(formatted_prompt):
-                    self.text_generated.emit(chunk)
-                    self.full_response += chunk
-            except Exception as stream_error:
-                print(f"Streaming error: {stream_error}")
-                # Fall back to standard generation
-                self.full_response = self.model.invoke(formatted_prompt)
-                self.text_generated.emit(self.full_response)
+                    # Emit the generated text and add to full response
+                    self.text_generated.emit(chunk_text)
+                    self.full_response += chunk_text
+                except Exception as e:
+                    pass  # Skip any problematic chunks
 
         except Exception as e:
-            error_msg = f"\nError generating response: {str(e)}"
-            print(error_msg)
-            self.text_generated.emit(error_msg)
+            # Fall back to standard generation if streaming fails
+            try:
+                prompt = rpg_engine.ChatPromptTemplate.from_template(rpg_engine.dm_template)
+                chain = prompt | self.model
+                self.full_response = chain.invoke(self.prompt_vars)
+                self.text_generated.emit(self.full_response)
+            except Exception as e2:
+                self.text_generated.emit(f"\nError generating response: {str(e2)}")
 
         # Signal that generation is complete
         self.generation_complete.emit(self.full_response)
@@ -968,7 +939,7 @@ class LaceAIdventureGUI(QMainWindow):
         return tab
 
     def create_game_tab(self):
-        """Create the game interface with enhanced CRPG-style journal system"""
+        """Create the game interface"""
         tab = QWidget()
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(15, 15, 15, 15)
@@ -1074,553 +1045,137 @@ class LaceAIdventureGUI(QMainWindow):
 
         game_layout.addLayout(cmd_layout)
 
-        # Create the game journal panel (CRPG-style)
-        journal_panel = QWidget()
-        journal_panel.setMinimumWidth(320)
-        journal_panel.setMaximumWidth(420)
-        journal_panel.setStyleSheet(f"""
-            background-color: white;
-            border: 1px solid {DM_NAME_COLOR};
-            border-radius: 10px;
-            padding: 5px;
+        # Create the game status panel
+        status_panel = QScrollArea()
+        status_panel.setWidgetResizable(True)
+        status_panel.setMinimumWidth(280)
+        status_panel.setMaximumWidth(350)
+        status_panel.setStyleSheet(f"""
+            QScrollArea {{ 
+                background-color: white;
+                border: 1px solid {DM_NAME_COLOR};
+                border-radius: 10px;
+            }}
         """)
 
-        journal_layout = QVBoxLayout(journal_panel)
-        journal_layout.setContentsMargins(8, 8, 8, 8)
-        journal_layout.setSpacing(10)
+        status_content = QWidget()
+        status_content.setStyleSheet(f"background-color: white; padding: 10px;")
+        self.status_layout = QVBoxLayout(status_content)
+        self.status_layout.setSpacing(15)  # More space between sections
 
-        # Create a tab widget for the journal
-        self.journal_tabs = QTabWidget()
-        self.journal_tabs.setStyleSheet(f"""
-            QTabWidget::pane {{ 
+        group_box_style = f"""
+            QGroupBox {{ 
+                background-color: #F8F4FF;
                 border: 1px solid {DM_NAME_COLOR}; 
-                border-radius: 5px; 
+                border-radius: 8px; 
+                margin-top: 12px; 
+                padding: 10px;
             }}
-            QTabBar::tab {{
-                background-color: #E1D4F2;
-                color: #3A1E64;
-                border: 1px solid {DM_NAME_COLOR};
-                border-bottom: none;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
-                padding: 6px 10px;
-                margin-right: 2px;
-            }}
-            QTabBar::tab:selected {{
-                background-color: {DM_NAME_COLOR};
-                color: white;
-            }}
-        """)
-
-        # Create Character Tab
-        character_tab = QScrollArea()
-        character_tab.setWidgetResizable(True)
-        character_tab.setFrameShape(QFrame.Shape.NoFrame)
-
-        character_content = QWidget()
-        character_layout = QVBoxLayout(character_content)
-
-        # Character portrait frame (placeholder for now)
-        character_portrait = QFrame()
-        character_portrait.setMinimumHeight(100)
-        character_portrait.setMaximumHeight(150)
-        character_portrait.setStyleSheet(f"""
-            background-color: #F0E8FF;
-            border: 1px solid {DM_NAME_COLOR};
-            border-radius: 5px;
-        """)
-        portrait_layout = QVBoxLayout(character_portrait)
-
-        self.character_name_header = QLabel("Character Name")
-        self.character_name_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.character_name_header.setStyleSheet(f"""
-            font-size: 18px;
-            font-weight: bold;
-            color: {HIGHLIGHT_COLOR};
-        """)
-        portrait_layout.addWidget(self.character_name_header)
-
-        self.character_class_race = QLabel("Class / Race")
-        self.character_class_race.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        portrait_layout.addWidget(self.character_class_race)
-
-        character_layout.addWidget(character_portrait)
-
-        # Character stats
-        character_stats = QGroupBox("Character Stats")
-        character_stats.setStyleSheet(f"""
-            QGroupBox {{
-                background-color: #F8F4FF;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                margin-top: 12px;
-                font-weight: bold;
-            }}
-            QGroupBox::title {{
-                color: {HIGHLIGHT_COLOR};
+            QGroupBox::title {{ 
+                color: {HIGHLIGHT_COLOR}; 
                 subcontrol-origin: margin;
                 left: 10px;
-            }}
-        """)
-
-        stats_layout = QFormLayout(character_stats)
-        stats_layout.setVerticalSpacing(8)
-
-        self.character_health_label = QLabel("20/20")
-        self.character_health_label.setStyleSheet("color: #3A1E64;")
-        stats_layout.addRow("Health:", self.character_health_label)
-
-        self.character_gold_label = QLabel("0")
-        self.character_gold_label.setStyleSheet("color: #3A1E64;")
-        stats_layout.addRow("Gold:", self.character_gold_label)
-
-        self.character_level_label = QLabel("1")
-        self.character_level_label.setStyleSheet("color: #3A1E64;")
-        stats_layout.addRow("Level:", self.character_level_label)
-
-        character_layout.addWidget(character_stats)
-
-        # Character traits and abilities
-        character_traits = QGroupBox("Traits & Abilities")
-        character_traits.setStyleSheet(f"""
-            QGroupBox {{
-                background-color: #F8F4FF;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                margin-top: 12px;
+                padding: 0 5px;
                 font-weight: bold;
             }}
-            QGroupBox::title {{
-                color: {HIGHLIGHT_COLOR};
-                subcontrol-origin: margin;
-                left: 10px;
-            }}
-        """)
+        """
 
-        traits_layout = QVBoxLayout(character_traits)
+        # Game info section
+        game_info_group = QGroupBox("Game Info")
+        game_info_group.setStyleSheet(group_box_style)
+        game_info_layout = QVBoxLayout(game_info_group)
+        game_info_layout.setSpacing(8)
 
-        self.character_traits_list = QListWidget()
-        self.character_traits_list.setStyleSheet(f"""
-            QListWidget {{
-                background-color: white;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                padding: 5px;
-                color: #3A1E64;
-            }}
-            QListWidget::item {{ padding: 3px; }}
-        """)
-        self.character_traits_list.setMaximumHeight(150)
-        traits_layout.addWidget(self.character_traits_list)
+        self.game_title_label = QLabel("Title: ")
+        self.game_world_label = QLabel("World: ")
+        self.game_location_label = QLabel("Location: ")
 
-        character_layout.addWidget(character_traits)
+        # Add styling to the labels
+        self.game_title_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
+        self.game_world_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
+        self.game_location_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
 
-        # Character inventory
-        character_inventory = QGroupBox("Inventory")
-        character_inventory.setStyleSheet(f"""
-            QGroupBox {{
-                background-color: #F8F4FF;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                margin-top: 12px;
-                font-weight: bold;
-            }}
-            QGroupBox::title {{
-                color: {HIGHLIGHT_COLOR};
-                subcontrol-origin: margin;
-                left: 10px;
-            }}
-        """)
+        game_info_layout.addWidget(self.game_title_label)
+        game_info_layout.addWidget(self.game_world_label)
+        game_info_layout.addWidget(self.game_location_label)
 
-        inventory_layout = QVBoxLayout(character_inventory)
+        # Character info section
+        character_info_group = QGroupBox("Character")
+        character_info_group.setStyleSheet(group_box_style)
+        character_info_layout = QVBoxLayout(character_info_group)
+        character_info_layout.setSpacing(8)
 
-        self.character_inventory_list = QListWidget()
-        self.character_inventory_list.setStyleSheet(f"""
-            QListWidget {{
-                background-color: white;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                padding: 5px;
-                color: #3A1E64;
-            }}
-            QListWidget::item {{ padding: 3px; }}
-        """)
-        inventory_layout.addWidget(self.character_inventory_list)
+        self.character_name_label = QLabel("Name: ")
+        self.character_class_label = QLabel("Class: ")
+        self.character_race_label = QLabel("Race: ")
+        self.character_health_label = QLabel("Health: ")
 
-        character_layout.addWidget(character_inventory)
-        character_layout.addStretch()
+        # Add styling to the labels
+        self.character_name_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
+        self.character_class_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
+        self.character_race_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
+        self.character_health_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
 
-        character_tab.setWidget(character_content)
+        character_info_layout.addWidget(self.character_name_label)
+        character_info_layout.addWidget(self.character_class_label)
+        character_info_layout.addWidget(self.character_race_label)
+        character_info_layout.addWidget(self.character_health_label)
 
-        # Create Quests Tab
-        quests_tab = QWidget()
-        quests_layout = QVBoxLayout(quests_tab)
+        # Quest info section
+        quest_info_group = QGroupBox("Current Quest")
+        quest_info_group.setStyleSheet(group_box_style)
+        quest_info_layout = QVBoxLayout(quest_info_group)
+        quest_info_layout.setSpacing(8)
 
-        # Split view for quests list and details
-        quests_splitter = QSplitter(Qt.Orientation.Vertical)
-        quests_splitter.setHandleWidth(8)
-        quests_splitter.setChildrenCollapsible(False)
+        self.quest_name_label = QLabel("Name: ")
+        self.quest_desc_label = QLabel("Description: ")
+        self.quest_desc_label.setWordWrap(True)
 
-        # Quest list widget
-        self.quests_list = QListWidget()
-        self.quests_list.setStyleSheet(f"""
-            QListWidget {{
-                background-color: white;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                padding: 5px;
-                color: #3A1E64;
-            }}
-            QListWidget::item {{ 
-                padding: 5px; 
-                border-bottom: 1px solid #E1D4F2;
-            }}
-            QListWidget::item:selected {{ 
-                background-color: {DM_NAME_COLOR}; 
-                color: white; 
-            }}
-        """)
+        # Add styling to the labels
+        self.quest_name_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
+        self.quest_desc_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
 
-        # Quest details widget
-        quest_details = QWidget()
-        quest_details.setStyleSheet(f"""
-            background-color: #F8F4FF;
-            border: 1px solid {DM_NAME_COLOR};
-            border-radius: 5px;
-            padding: 5px;
-        """)
+        quest_info_layout.addWidget(self.quest_name_label)
+        quest_info_layout.addWidget(self.quest_desc_label)
 
-        quest_details_layout = QVBoxLayout(quest_details)
+        # NPCs section
+        npcs_group = QGroupBox("NPCs Present")
+        npcs_group.setStyleSheet(group_box_style)
+        npcs_layout = QVBoxLayout(npcs_group)
+        npcs_layout.setSpacing(5)
 
-        self.quest_title = QLabel("Select a quest to view details")
-        self.quest_title.setStyleSheet(f"""
-            font-size: 16px;
-            font-weight: bold;
-            color: {HIGHLIGHT_COLOR};
-        """)
-        quest_details_layout.addWidget(self.quest_title)
-
-        self.quest_status = QLabel("Status: ")
-        self.quest_status.setStyleSheet("font-weight: bold; color: #3A1E64;")
-        quest_details_layout.addWidget(self.quest_status)
-
-        self.quest_description = QTextEdit()
-        self.quest_description.setReadOnly(True)
-        self.quest_description.setStyleSheet(f"""
-            background-color: white;
-            border: 1px solid {DM_NAME_COLOR};
-            border-radius: 5px;
-            padding: 5px;
-            color: #3A1E64;
-        """)
-        quest_details_layout.addWidget(self.quest_description)
-
-        self.quest_steps_label = QLabel("Quest Progress:")
-        self.quest_steps_label.setStyleSheet("font-weight: bold; color: #3A1E64;")
-        quest_details_layout.addWidget(self.quest_steps_label)
-
-        self.quest_steps_list = QListWidget()
-        self.quest_steps_list.setStyleSheet(f"""
-            QListWidget {{
-                background-color: white;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                padding: 5px;
-                color: #3A1E64;
-            }}
-            QListWidget::item {{ padding: 3px; }}
-        """)
-        quest_details_layout.addWidget(self.quest_steps_list)
-
-        # Add to splitter and layout
-        quests_splitter.addWidget(self.quests_list)
-        quests_splitter.addWidget(quest_details)
-        quests_splitter.setSizes([150, 300])
-
-        quests_layout.addWidget(quests_splitter)
-
-        # Create NPCs Tab
-        npcs_tab = QWidget()
-        npcs_layout = QVBoxLayout(npcs_tab)
-
-        # Split view for NPCs list and details
-        npcs_splitter = QSplitter(Qt.Orientation.Vertical)
-        npcs_splitter.setHandleWidth(8)
-        npcs_splitter.setChildrenCollapsible(False)
-
-        # NPCs list widget
         self.npcs_list = QListWidget()
         self.npcs_list.setStyleSheet(f"""
-            QListWidget {{
+            QListWidget {{ 
                 background-color: white;
                 border: 1px solid {DM_NAME_COLOR};
                 border-radius: 5px;
                 padding: 5px;
-                color: #3A1E64;
+                color: #4A2D7D;  /* Darker text for list items */
             }}
-            QListWidget::item {{ 
-                padding: 5px; 
-                border-bottom: 1px solid #E1D4F2;
-            }}
+            QListWidget::item {{ padding: 5px; }}
             QListWidget::item:selected {{ 
                 background-color: {DM_NAME_COLOR}; 
                 color: white; 
             }}
         """)
+        npcs_layout.addWidget(self.npcs_list)
 
-        # NPC details widget
-        npc_details = QWidget()
-        npc_details.setStyleSheet(f"""
-            background-color: #F8F4FF;
-            border: 1px solid {DM_NAME_COLOR};
-            border-radius: 5px;
-            padding: 5px;
-        """)
+        # Add all sections to the status layout
+        self.status_layout.addWidget(game_info_group)
+        self.status_layout.addWidget(character_info_group)
+        self.status_layout.addWidget(quest_info_group)
+        self.status_layout.addWidget(npcs_group)
+        self.status_layout.addStretch()
 
-        npc_details_layout = QVBoxLayout(npc_details)
-
-        self.npc_name = QLabel("Select an NPC to view details")
-        self.npc_name.setStyleSheet(f"""
-            font-size: 16px;
-            font-weight: bold;
-            color: {HIGHLIGHT_COLOR};
-        """)
-        npc_details_layout.addWidget(self.npc_name)
-
-        self.npc_race = QLabel("Race: ")
-        self.npc_race.setStyleSheet("font-weight: bold; color: #3A1E64;")
-        npc_details_layout.addWidget(self.npc_race)
-
-        self.npc_disposition = QLabel("Disposition: ")
-        self.npc_disposition.setStyleSheet("font-weight: bold; color: #3A1E64;")
-        npc_details_layout.addWidget(self.npc_disposition)
-
-        self.npc_location = QLabel("Location: ")
-        self.npc_location.setStyleSheet("font-weight: bold; color: #3A1E64;")
-        npc_details_layout.addWidget(self.npc_location)
-
-        self.npc_description = QTextEdit()
-        self.npc_description.setReadOnly(True)
-        self.npc_description.setStyleSheet(f"""
-            background-color: white;
-            border: 1px solid {DM_NAME_COLOR};
-            border-radius: 5px;
-            padding: 5px;
-            color: #3A1E64;
-        """)
-        npc_details_layout.addWidget(self.npc_description)
-
-        # Add to splitter and layout
-        npcs_splitter.addWidget(self.npcs_list)
-        npcs_splitter.addWidget(npc_details)
-        npcs_splitter.setSizes([150, 300])
-
-        npcs_layout.addWidget(npcs_splitter)
-
-        # Create Locations Tab
-        locations_tab = QWidget()
-        locations_layout = QVBoxLayout(locations_tab)
-
-        # Split view for locations list and details
-        locations_splitter = QSplitter(Qt.Orientation.Vertical)
-        locations_splitter.setHandleWidth(8)
-        locations_splitter.setChildrenCollapsible(False)
-
-        # Locations list widget
-        self.locations_list = QListWidget()
-        self.locations_list.setStyleSheet(f"""
-            QListWidget {{
-                background-color: white;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                padding: 5px;
-                color: #3A1E64;
-            }}
-            QListWidget::item {{ 
-                padding: 5px; 
-                border-bottom: 1px solid #E1D4F2;
-            }}
-            QListWidget::item:selected {{ 
-                background-color: {DM_NAME_COLOR}; 
-                color: white; 
-            }}
-            QListWidget::item[current="true"] {{
-                font-weight: bold;
-                background-color: #E1D4F2;
-            }}
-        """)
-
-        # Location details widget
-        location_details = QWidget()
-        location_details.setStyleSheet(f"""
-            background-color: #F8F4FF;
-            border: 1px solid {DM_NAME_COLOR};
-            border-radius: 5px;
-            padding: 5px;
-        """)
-
-        location_details_layout = QVBoxLayout(location_details)
-
-        self.location_name = QLabel("Select a location to view details")
-        self.location_name.setStyleSheet(f"""
-            font-size: 16px;
-            font-weight: bold;
-            color: {HIGHLIGHT_COLOR};
-        """)
-        location_details_layout.addWidget(self.location_name)
-
-        self.location_status = QLabel("")
-        self.location_status.setStyleSheet("font-weight: bold; color: #3A1E64;")
-        location_details_layout.addWidget(self.location_status)
-
-        self.location_description = QTextEdit()
-        self.location_description.setReadOnly(True)
-        self.location_description.setStyleSheet(f"""
-            background-color: white;
-            border: 1px solid {DM_NAME_COLOR};
-            border-radius: 5px;
-            padding: 5px;
-            color: #3A1E64;
-        """)
-        location_details_layout.addWidget(self.location_description)
-
-        self.location_npcs_label = QLabel("NPCs present:")
-        self.location_npcs_label.setStyleSheet("font-weight: bold; color: #3A1E64;")
-        location_details_layout.addWidget(self.location_npcs_label)
-
-        self.location_npcs_list = QListWidget()
-        self.location_npcs_list.setStyleSheet(f"""
-            QListWidget {{
-                background-color: white;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                padding: 5px;
-                color: #3A1E64;
-            }}
-            QListWidget::item {{ padding: 3px; }}
-        """)
-        self.location_npcs_list.setMaximumHeight(100)
-        location_details_layout.addWidget(self.location_npcs_list)
-
-        # Add to splitter and layout
-        locations_splitter.addWidget(self.locations_list)
-        locations_splitter.addWidget(location_details)
-        locations_splitter.setSizes([150, 300])
-
-        locations_layout.addWidget(locations_splitter)
-
-        # Create Journal Tab (for notes or summaries)
-        journal_tab = QWidget()
-        journal_layout = QVBoxLayout(journal_tab)
-
-        self.journal_text = QTextEdit()
-        self.journal_text.setReadOnly(True)
-        self.journal_text.setStyleSheet(f"""
-            QTextEdit {{
-                background-color: white;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                padding: 10px;
-                color: #3A1E64;
-            }}
-        """)
-        journal_layout.addWidget(self.journal_text)
-
-        # Create Game Info Tab (basic game info)
-        gameinfo_tab = QWidget()
-        gameinfo_layout = QVBoxLayout(gameinfo_tab)
-
-        # Game title and world
-        game_title_frame = QFrame()
-        game_title_frame.setStyleSheet(f"""
-            background-color: #F0E8FF;
-            border: 1px solid {DM_NAME_COLOR};
-            border-radius: 5px;
-            padding: 10px;
-        """)
-
-        title_layout = QVBoxLayout(game_title_frame)
-
-        self.game_title_label = QLabel("Game Title")
-        self.game_title_label.setStyleSheet(f"""
-            font-size: 18px;
-            font-weight: bold;
-            color: {HIGHLIGHT_COLOR};
-            text-align: center;
-        """)
-        self.game_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_layout.addWidget(self.game_title_label)
-
-        self.game_world_label = QLabel("World")
-        self.game_world_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_layout.addWidget(self.game_world_label)
-
-        gameinfo_layout.addWidget(game_title_frame)
-
-        # Game details
-        game_details = QGroupBox("Game Details")
-        game_details.setStyleSheet(f"""
-            QGroupBox {{
-                background-color: #F8F4FF;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                margin-top: 12px;
-                font-weight: bold;
-            }}
-            QGroupBox::title {{
-                color: {HIGHLIGHT_COLOR};
-                subcontrol-origin: margin;
-                left: 10px;
-            }}
-        """)
-
-        details_layout = QFormLayout(game_details)
-        details_layout.setVerticalSpacing(8)
-
-        self.game_genre_label = QLabel("")
-        self.game_genre_label.setStyleSheet("color: #3A1E64;")
-        details_layout.addRow("Genre:", self.game_genre_label)
-
-        self.game_tone_label = QLabel("")
-        self.game_tone_label.setStyleSheet("color: #3A1E64;")
-        details_layout.addRow("Tone:", self.game_tone_label)
-
-        self.game_rating_label = QLabel("")
-        self.game_rating_label.setStyleSheet("color: #3A1E64;")
-        details_layout.addRow("Rating:", self.game_rating_label)
-
-        self.game_location_label = QLabel("")
-        self.game_location_label.setStyleSheet("color: #3A1E64;")
-        details_layout.addRow("Current Location:", self.game_location_label)
-
-        self.game_time_label = QLabel("")
-        self.game_time_label.setStyleSheet("color: #3A1E64;")
-        details_layout.addRow("Time:", self.game_time_label)
-
-        gameinfo_layout.addWidget(game_details)
-        gameinfo_layout.addStretch()
-
-        # Add tabs to the journal tabs widget
-        self.journal_tabs.addTab(gameinfo_tab, "Game Info")
-        self.journal_tabs.addTab(character_tab, "Character")
-        self.journal_tabs.addTab(quests_tab, "Quests")
-        self.journal_tabs.addTab(npcs_tab, "NPCs")
-        self.journal_tabs.addTab(locations_tab, "Locations")
-        self.journal_tabs.addTab(journal_tab, "Journal")
-
-        journal_layout.addWidget(self.journal_tabs)
+        status_panel.setWidget(status_content)
 
         # Add the panels to the splitter
         splitter.addWidget(game_panel)
-        splitter.addWidget(journal_panel)
+        splitter.addWidget(status_panel)
 
         # Set the initial sizes
-        splitter.setSizes([650, 350])
-
-        # Connect list selection signals
-        self.quests_list.currentItemChanged.connect(self.update_quest_details)
-        self.npcs_list.currentItemChanged.connect(self.update_npc_details)
-        self.locations_list.currentItemChanged.connect(self.update_location_details)
+        splitter.setSizes([600, 300])
 
         # Add the splitter to the layout
         layout.addWidget(splitter)
@@ -2645,9 +2200,14 @@ class LaceAIdventureGUI(QMainWindow):
         # Dynamic element creation from the rpg_engine.py functions
         self.game_state = rpg_engine.update_dynamic_elements(self.game_state, memory_updates)
 
-        # Store important updates but don't display them as text anymore
+        # Store important updates
         if important_updates:
             self.game_state['important_updates'] = important_updates
+
+            # Display important updates
+            self.text_display.append_system_message("! Important developments:")
+            for update in important_updates:
+                self.text_display.append_system_message(f"* {update}")
 
         # Save the game state
         rpg_engine.save_game_state(self.game_state, self.story_name)
@@ -2656,222 +2216,39 @@ class LaceAIdventureGUI(QMainWindow):
         self.update_game_status()
 
     def update_game_status(self):
-        """Update the game status panel with enhanced CRPG-style journal information"""
+        """Update the game status panel"""
         if not self.game_state:
             return
 
-        # Update game info tab
-        self.game_title_label.setText(self.game_state['game_info']['title'])
-        self.game_world_label.setText(self.game_state['game_info']['world_name'])
-        self.game_genre_label.setText(self.game_state['game_info']['genre'])
-        self.game_tone_label.setText(self.game_state['game_info']['tone'])
-        self.game_rating_label.setText(self.game_state['game_info']['rating'])
+        # Update game info
+        self.game_title_label.setText(f"Title: {self.game_state['game_info']['title']}")
+        self.game_world_label.setText(f"World: {self.game_state['game_info']['world_name']}")
 
         current_loc_id = self.game_state['game_info']['current_location']
-        self.game_location_label.setText(self.game_state['locations'][current_loc_id]['name'])
+        self.game_location_label.setText(f"Location: {self.game_state['locations'][current_loc_id]['name']}")
 
-        time_text = f"{self.game_state['game_info']['time_of_day']}, Day {self.game_state['game_info']['days_passed']}"
-        self.game_time_label.setText(time_text)
-
-        # Update character tab info
+        # Update character info
         pc_id = list(self.game_state['player_characters'].keys())[0]
         pc = self.game_state['player_characters'][pc_id]
 
-        self.character_name_header.setText(pc['name'])
-        self.character_class_race.setText(f"{pc['class']} / {pc['race']}")
-        self.character_health_label.setText(f"{pc['health']}/{pc['max_health']}")
-        self.character_gold_label.setText(str(pc['gold']))
-        self.character_level_label.setText(str(pc['level']))
+        self.character_name_label.setText(f"Name: {pc['name']}")
+        self.character_class_label.setText(f"Class: {pc['class']}")
+        self.character_race_label.setText(f"Race: {pc['race']}")
+        self.character_health_label.setText(f"Health: {pc['health']}/{pc['max_health']}")
 
-        # Update character traits and abilities
-        self.character_traits_list.clear()
-        if 'character_traits' in pc:
-            for trait in pc['character_traits']:
-                self.character_traits_list.addItem(f"Trait: {trait}")
-        for ability in pc['abilities']:
-            self.character_traits_list.addItem(f"Ability: {ability}")
-
-        # Update character inventory
-        self.character_inventory_list.clear()
-        for item in pc['inventory']:
-            self.character_inventory_list.addItem(item)
-
-        # Update quests list
-        self.quests_list.clear()
+        # Update quest info
         current_quest_id = self.game_state['game_info']['current_quest']
-
-        # Store quest data for later reference when selecting a quest
-        self.quest_data = {}
-
-        for quest_id, quest in self.game_state['quests'].items():
-            display_text = quest['name']
-
-            # Mark current quest and add status
-            if quest_id == current_quest_id:
-                display_text = f"➤ {display_text} (Active)"
-            elif quest['status'] == 'completed':
-                display_text = f"✓ {display_text} (Completed)"
-            elif quest['status'] == 'active':
-                display_text = f"• {display_text} (Active)"
-            else:
-                display_text = f"• {display_text} ({quest['status'].capitalize()})"
-
-            # Create item and store quest data
-            item = QListWidgetItem(display_text)
-            self.quests_list.addItem(item)
-            self.quest_data[item] = (quest_id, quest)
-
-            # Select the current quest by default
-            if quest_id == current_quest_id:
-                self.quests_list.setCurrentItem(item)
-
-        # Update NPCs list with all known NPCs
-        self.npcs_list.clear()
-        current_location = self.game_state['locations'][current_loc_id]
-
-        # Store NPC data for later reference
-        self.npc_data = {}
-
-        for npc_id, npc in self.game_state['npcs'].items():
-            display_text = npc['name']
-
-            # Mark NPCs present at current location
-            if npc_id in current_location['npcs_present']:
-                display_text = f"➤ {display_text} (Present)"
-
-            # Create item and store NPC data
-            item = QListWidgetItem(display_text)
-            self.npcs_list.addItem(item)
-            self.npc_data[item] = (npc_id, npc)
-
-        # Update locations list with all known locations
-        self.locations_list.clear()
-
-        # Store location data for later reference
-        self.location_data = {}
-
-        for loc_id, location in self.game_state['locations'].items():
-            display_text = location['name']
-
-            # Mark current location
-            if loc_id == current_loc_id:
-                display_text = f"➤ {display_text} (Current)"
-            elif location['visited']:
-                display_text = f"✓ {display_text} (Visited)"
-            else:
-                display_text = f"• {display_text} (Discovered)"
-
-            # Create item and store location data
-            item = QListWidgetItem(display_text)
-            self.locations_list.addItem(item)
-            self.location_data[item] = (loc_id, location)
-
-            # Select the current location by default
-            if loc_id == current_loc_id:
-                self.locations_list.setCurrentItem(item)
-
-        # Update journal tab with recent memories or summary
-        if hasattr(self, 'journal_text'):
-            memory_entries = []
-            for category in ['world_facts', 'plot_developments', 'character_development', 'relationships']:
-                if category in self.game_state['narrative_memory'] and self.game_state['narrative_memory'][category]:
-                    memory_entries.extend(self.game_state['narrative_memory'][category][-3:])
-
-            journal_text = "<h2>Recent Developments</h2>"
-            for entry in memory_entries:
-                journal_text += f"<p>• {entry}</p>"
-
-            self.journal_text.setHtml(journal_text)
-
-    def update_quest_details(self, current, previous):
-        """Update quest details when a quest is selected"""
-        if not current or current not in self.quest_data:
-            self.quest_title.setText("Select a quest to view details")
-            self.quest_status.setText("Status: ")
-            self.quest_description.setPlainText("")
-            self.quest_steps_list.clear()
-            return
-
-        # Get quest data
-        quest_id, quest = self.quest_data[current]
-
-        # Update quest details UI
-        self.quest_title.setText(quest['name'])
-        self.quest_status.setText(f"Status: {quest['status'].capitalize()}")
-        self.quest_description.setPlainText(quest['description'])
-
-        # Update quest steps
-        self.quest_steps_list.clear()
-        for step in quest['steps']:
-            status = "✓ " if step['completed'] else "□ "
-            self.quest_steps_list.addItem(f"{status}{step['description']}")
-
-    def update_npc_details(self, current, previous):
-        """Update NPC details when an NPC is selected"""
-        if not current or current not in self.npc_data:
-            self.npc_name.setText("Select an NPC to view details")
-            self.npc_race.setText("Race: ")
-            self.npc_disposition.setText("Disposition: ")
-            self.npc_location.setText("Location: ")
-            self.npc_description.setPlainText("")
-            return
-
-        # Get NPC data
-        npc_id, npc = self.npc_data[current]
-
-        # Update NPC details UI
-        self.npc_name.setText(npc['name'])
-        self.npc_race.setText(f"Race: {npc['race']}")
-        self.npc_disposition.setText(f"Disposition: {npc['disposition'].capitalize()}")
-
-        # Find location name
-        location_name = "Unknown"
-        if 'location' in npc and npc['location'] in self.game_state['locations']:
-            location_name = self.game_state['locations'][npc['location']]['name']
-        self.npc_location.setText(f"Location: {location_name}")
-
-        # Update description
-        self.npc_description.setPlainText(npc['description'])
-        if 'dialogue_style' in npc:
-            self.npc_description.append(f"\nDialogue style: {npc['dialogue_style']}")
-        if 'motivation' in npc:
-            self.npc_description.append(f"\nMotivation: {npc['motivation']}")
-
-    def update_location_details(self, current, previous):
-        """Update location details when a location is selected"""
-        if not current or current not in self.location_data:
-            self.location_name.setText("Select a location to view details")
-            self.location_status.setText("")
-            self.location_description.setPlainText("")
-            self.location_npcs_list.clear()
-            return
-
-        # Get location data
-        loc_id, location = self.location_data[current]
-
-        # Update location details UI
-        self.location_name.setText(location['name'])
-
-        # Set status text
-        if loc_id == self.game_state['game_info']['current_location']:
-            self.location_status.setText("Status: Current Location")
-        elif location['visited']:
-            self.location_status.setText("Status: Visited")
-        else:
-            self.location_status.setText("Status: Discovered")
-
-        # Update description
-        description_text = location['description']
-        if 'ambience' in location:
-            description_text += f"\n\n{location['ambience']}"
-        self.location_description.setPlainText(description_text)
+        if current_quest_id and current_quest_id in self.game_state['quests']:
+            quest = self.game_state['quests'][current_quest_id]
+            self.quest_name_label.setText(f"Name: {quest['name']}")
+            self.quest_desc_label.setText(f"Description: {quest['description']}")
 
         # Update NPCs list
-        self.location_npcs_list.clear()
+        self.npcs_list.clear()
+        location = self.game_state['locations'][current_loc_id]
         for npc_id in location['npcs_present']:
-            if npc_id in self.game_state['npcs']:
-                npc = self.game_state['npcs'][npc_id]
-                self.location_npcs_list.addItem(f"{npc['name']} ({npc['disposition']})")
+            npc = self.game_state['npcs'][npc_id]
+            self.npcs_list.addItem(f"{npc['name']} - {npc['disposition']}")
 
     def save_game(self):
         """Save the game"""
