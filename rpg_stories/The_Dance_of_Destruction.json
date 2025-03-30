@@ -13,9 +13,9 @@
     "current_quest": "main_quest",
     "time_of_day": "morning",
     "days_passed": 0,
-    "temperature": 0.7,
-    "top_p": 0.9,
-    "max_tokens": 2048,
+    "temperature": 0.9,
+    "top_p": 0.7,
+    "max_tokens": 1024,
     "model_name": "benevolentjoker/nsfwmonika:latest"
   },
   "player_characters": {
@@ -57,6 +57,17 @@
       "knowledge": [],
       "relationships": {},
       "dialogue_style": "sensual and flirtatious"
+    },
+    "npc_traits_or": {
+      "name": "traits or",
+      "race": "Unknown",
+      "description": "A mysterious character recently introduced to the story.",
+      "location": "starting_location",
+      "disposition": "neutral",
+      "motivation": "unknown but appears to have interest in the player",
+      "knowledge": [],
+      "relationships": {},
+      "dialogue_style": "speaks quietly and carefully"
     }
   },
   "locations": {
@@ -64,9 +75,13 @@
       "name": "Carl's House",
       "description": "it's his house",
       "ambience": "The environment sets the mood for your adventure.",
-      "connected_to": [],
+      "connected_to": [
+        "location_house",
+        "location_room"
+      ],
       "npcs_present": [
-        "npc_cathy"
+        "npc_cathy",
+        "npc_traits_or"
       ],
       "points_of_interest": [],
       "secrets": [],
@@ -74,6 +89,32 @@
         "main_quest"
       ],
       "visited": true
+    },
+    "location_house": {
+      "name": "Player's House",
+      "description": "A house that appears to be important to the story.",
+      "ambience": "The atmosphere is yet to be fully experienced.",
+      "connected_to": [
+        "starting_location"
+      ],
+      "npcs_present": [],
+      "points_of_interest": [],
+      "secrets": [],
+      "available_quests": [],
+      "visited": false
+    },
+    "location_room": {
+      "name": "Player's Room",
+      "description": "A room that appears to be important to the story.",
+      "ambience": "The atmosphere is yet to be fully experienced.",
+      "connected_to": [
+        "starting_location"
+      ],
+      "npcs_present": [],
+      "points_of_interest": [],
+      "secrets": [],
+      "available_quests": [],
+      "visited": false
     }
   },
   "items": {},
@@ -113,6 +154,46 @@
         {
           "speaker": "DM",
           "text": ""
+        },
+        {
+          "speaker": "Player",
+          "text": "Who am I"
+        },
+        {
+          "speaker": "DM",
+          "text": ""
+        },
+        {
+          "speaker": "Player",
+          "text": "Where am I?"
+        },
+        {
+          "speaker": "DM",
+          "text": "You find yourself in Carl's House, a modest abode that reflects its owner's simple yet refined tastes. The morning sunlight filters through the windows, casting a warm glow over the cozy living room. A faint scent of freshly brewed coffee wafts from the kitchen, mingling with the sweet aroma of baked goods."
+        },
+        {
+          "speaker": "Player",
+          "text": "And, who am I?"
+        },
+        {
+          "speaker": "DM",
+          "text": "You're Carl, a level 1 Human Musician with an attractive and charming persona. You have 20/20 health, can persuade or deceive others, and possess basic equipment and rations. Your goal is to understand your current situation and figure out where you are in relation to the quest \"Find a date: get a girlfriend\"."
+        },
+        {
+          "speaker": "Player",
+          "text": "Time to find one!"
+        },
+        {
+          "speaker": "DM",
+          "text": "You stretch your arms, feeling the morning sunlight on your skin. Cathy, the hot young lady from next door, enters the living room with a tray of freshly baked pastries and a smile that could light up the whole house.\n\n\"Good morning, Carl! I brought some breakfast goodies to help you start your day,\" she says, her voice as sweet as the treats she's holding. \"And don't worry, I'm happy to help you find someone special. But first, let's enjoy this lovely morning together.\"\n\nCathy sets the tray down on the coffee table and takes a seat next to you, her leg brushing against yours. Traits or, the mysterious character, lingers in the background, watching the scene unfold with an air of quiet interest.\n\nWhat would you like to do?"
+        },
+        {
+          "speaker": "Player",
+          "text": "\"I know one way we can enjoy the morning\" you say, with a wink"
+        },
+        {
+          "speaker": "DM",
+          "text": "You lean in close to Cathy, your voice low and flirtatious. \"Why don't we make this morning a little more...enjoyable?\" You suggest, your eyes locked on hers.\n\nCathy's smile widens, and she leans in closer, her breath whispering against your ear. \"Oh, I think that can be arranged,\" she whispers back, her voice husky with desire.\n\nTraits or, the mysterious character, takes a step forward, their eyes fixed on the scene unfolding before them. Their expression remains neutral, but a hint of interest flickers in their gaze.\n\nThe air is charged with tension as Cathy and you exchange a flirtatious glance. The morning sunlight streaming through the windows seems to grow brighter, casting an intimate glow over the room.\n\nWhat would you like to do?"
         }
       ]
     }
@@ -131,17 +212,77 @@
     }
   },
   "narrative_memory": {
-    "world_facts": [],
-    "character_development": [],
-    "relationships": [],
-    "plot_developments": [],
-    "player_decisions": [],
-    "environment_details": [],
-    "conversation_details": [],
-    "new_npcs": [],
-    "new_locations": [],
-    "new_items": [],
-    "new_quests": []
+    "world_facts": [
+      "* Carl's House has a modest yet refined interior design.",
+      "* Freshly brewed coffee and baked goods are made in the kitchen.",
+      "**",
+      "* Cathy brings freshly baked pastries and a tray of goodies."
+    ],
+    "character_development": [
+      "* The player is currently unaware of their surroundings.",
+      "* No new character traits or abilities were revealed.",
+      "**",
+      "* Cathy, the hot young lady from next door, is introduced.",
+      "* Traits or, the mysterious character, lingers in the background.",
+      "* Cathy brings freshly baked pastries and a tray of goodies.",
+      "* Traits or, the mysterious character, lingers in the background with neutral expression.",
+      "* A hint of interest flickers in their gaze."
+    ],
+    "relationships": [
+      "**",
+      "* No new relationships or connections between characters were established.",
+      "* Cathy and Carl have a friendly relationship.",
+      "* Cathy offers to help Carl find someone special.",
+      "* The air is charged with tension as Cathy and Carl exchange a flirtatious glance."
+    ],
+    "plot_developments": [
+      "(Balanced):",
+      "* **The player's goal becomes clear: to understand their current situation.**",
+      "(Balanced):**"
+    ],
+    "player_decisions": [
+      "or actions taken:",
+      "* The player asked, \"Where am I?\" but took no other action.",
+      "or actions taken:**",
+      "* The player asks, \"Time to find one!\" but takes no other action.",
+      "* The player asks, \"I know one way we can enjoy the morning\" with a wink.",
+      "* Cathy leans in close and suggests making the morning more enjoyable.",
+      "* Traits or takes a step forward, eyes fixed on the scene."
+    ],
+    "environment_details": [
+      "* A faint scent of freshly brewed coffee and baked goods is present.",
+      "* Morning sunlight filters through the windows.",
+      "**",
+      "* Morning sunlight filters through the windows, casting an intimate glow over the room."
+    ],
+    "conversation_details": [
+      "* Carl's House was mentioned as the location, but no further conversation occurred.",
+      "**",
+      "* Cathy mentions Carl's House as the location.",
+      "* Cathy offers to help Carl find someone special."
+    ],
+    "new_npcs": [
+      "**",
+      "* No new NPCs were introduced.",
+      "* **Cathy, the hot young lady from next door**, is introduced.",
+      "* Traits or, the mysterious character, lingers in the background."
+    ],
+    "new_locations": [
+      "* **Carl's House** has been added to the narrative memory.",
+      "**"
+    ],
+    "new_items": [
+      "* No new items have been introduced.",
+      "**"
+    ],
+    "new_quests": [
+      "or missions:",
+      "* No new quests or missions were revealed.",
+      "or missions:**"
+    ]
   },
-  "important_updates": []
+  "important_updates": [
+    "New Character: * **Cathy, the hot young lady from next door**, is introduced.",
+    "New Location: * **Carl's House** has been added to the narrative memory."
+  ]
 }
