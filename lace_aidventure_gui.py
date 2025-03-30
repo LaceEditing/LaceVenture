@@ -4294,7 +4294,7 @@ class LaceAIdventureGUI(QMainWindow):
 
 
 
-        # Re-enable the input field
+        # Enable the input field
 
         self.input_field.setEnabled(True)
 
@@ -4302,128 +4302,61 @@ class LaceAIdventureGUI(QMainWindow):
 
         self.input_field.setFocus()
 
-
-
     def update_game_state(self, player_input, dm_response):
-
         """Update the game state based on player input and DM response"""
-
         # Add to conversation history
-
         current_session = self.game_state['game_info']['session_count']
 
-
-
         # Find current session or create new one
-
         session_found = False
-
         for session in self.game_state['conversation_history']:
-
             if session['session'] == current_session:
-
                 session['exchanges'].append({"speaker": "Player", "text": player_input})
-
                 session['exchanges'].append({"speaker": "DM", "text": dm_response})
-
                 session_found = True
-
                 break
 
-
-
         if not session_found:
-
             self.game_state['conversation_history'].append({
-
                 "session": current_session,
-
                 "exchanges": [
-
                     {"speaker": "Player", "text": player_input},
-
                     {"speaker": "DM", "text": dm_response}
-
                 ]
-
             })
 
-
-
         # Get plot pacing preference
-
         plot_pace = self.game_state['game_info'].get('plot_pace', 'Balanced')
 
-
-
         # Update memory
-
         memory_updates, important_updates = rpg_engine.extract_memory_updates(
-
             player_input,
-
             dm_response,
-
             self.game_state['narrative_memory'],
-
             self.model,
-
             plot_pace
-
         )
 
-
-
         # Add new memory items without duplicates
-
         for category, items in memory_updates.items():
-
             if category not in self.game_state['narrative_memory']:
-
                 self.game_state['narrative_memory'][category] = []
 
-
-
             for item in items:
-
                 if item not in self.game_state['narrative_memory'][category]:
-
                     self.game_state['narrative_memory'][category].append(item)
 
-
-
         # Dynamic element creation from the rpg_engine.py functions
-
         self.game_state = rpg_engine.update_dynamic_elements(self.game_state, memory_updates)
 
-
-
-        # Store important updates
-
+        # Store important updates (but don't display them)
         if important_updates:
-
             self.game_state['important_updates'] = important_updates
 
-
-
-            # Display important updates
-
-            self.text_display.append_system_message("! Important developments:")
-
-            for update in important_updates:
-
-                self.text_display.append_system_message(f"* {update}")
-
-
-
         # Save the game state
-
         rpg_engine.save_game_state(self.game_state, self.story_name)
 
-
-
         # Update the game status panel
-
         self.update_game_status()
 
 

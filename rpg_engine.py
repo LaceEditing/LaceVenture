@@ -1598,818 +1598,479 @@ New information to add to memory:
         }, []
 
 
-
-
-
 def update_dynamic_elements(game_state, memory_updates):
-
     """Updates game state with new elements the AI has created using enhanced detection patterns and validation"""
 
-
-
     # Common words that should not be part of names or standalone names
-
     invalid_name_words = ['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'being', 'been',
-
                           'across', 'around', 'at', 'by', 'for', 'from', 'in', 'to', 'with',
-
-                          'watching', 'standing', 'looking', 'waiting', 'figure', 'person']
-
-
+                          'watching', 'standing', 'looking', 'waiting', 'figure', 'person',
+                          'that', 'this', 'these', 'those', 'it', 'its', 'he', 'she', 'his', 'her',
+                          'they', 'them', 'their', 'there', 'here', 'where', 'when', 'what', 'who',
+                          'which', 'while', 'though', 'although', 'and', 'but', 'or', 'if', 'then',
+                          'because', 'since', 'as', 'so', 'such', 'both', 'either', 'neither',
+                          'each', 'every', 'all', 'some', 'any', 'many', 'few', 'several',
+                          'mysterious', 'strange', 'suspicious', 'unknown', 'unidentified',
+                          'dressed', 'clothed', 'wearing', 'covered', 'seen', 'observed',
+                          'sitting', 'walking', 'running', 'appears', 'seems']
 
     # Common locations that should be recognized
-
     common_locations = {
-
         'house': 'Player\'s House',
-
         'home': 'Player\'s Home',
-
         'apartment': 'Player\'s Apartment',
-
         'room': 'Player\'s Room',
-
         'building': 'Mysterious Building',
-
         'street': 'Street Outside',
-
         'town': 'Town Center',
-
         'city': 'City Center',
-
         'forest': 'Dark Forest',
-
         'cave': 'Mysterious Cave',
-
         'dungeon': 'Ancient Dungeon',
-
         'castle': 'Imposing Castle',
-
         'tavern': 'Local Tavern',
-
         'inn': 'Cozy Inn',
-
         'shop': 'General Store',
-
         'market': 'Town Market'
-
     }
 
+    # Get player's name for better location naming
+    pc_id = list(game_state['player_characters'].keys())[0]
+    pc_name = game_state['player_characters'][pc_id]['name']
 
+    # Update common locations with player's name
+    personal_locations = {
+        'house': f"{pc_name}'s House",
+        'home': f"{pc_name}'s Home",
+        'apartment': f"{pc_name}'s Apartment",
+        'room': f"{pc_name}'s Room"
+    }
+    common_locations.update(personal_locations)
 
-    # Check for explicitly mentioned home/house in player input
-
+    # Check for explicit mention of home/house in player input or responses
     for category in ['player_decisions', 'plot_developments']:
-
         for item in memory_updates.get(category, []):
+            # Look for phrases like "go home", "enter house", "return to house", etc.
+            home_phrases = ["go home", "go to home", "enter home", "return home",
+                            "go to house", "enter house", "return to house",
+                            "go to apartment", "enter apartment", "return to apartment",
+                            "go to room", "enter room", "return to room"]
 
-            if any(loc in item.lower() for loc in ['home', 'house', 'apartment']):
+            item_lower = item.lower()
+            if any(phrase in item_lower for phrase in home_phrases):
+                # Determine which type of home location
+                location_type = "house"  # default
+                if "apartment" in item_lower:
+                    location_type = "apartment"
+                elif "room" in item_lower:
+                    location_type = "room"
 
-                # Create player's home location if it doesn't exist
+                location_name = personal_locations[location_type]
 
-                home_exists = False
-
+                # Check if this location already exists
+                loc_exists = False
                 home_loc_id = None
 
                 for loc_id, loc in game_state['locations'].items():
-
-                    if any(home_word in loc['name'].lower() for home_word in ['home', 'house', 'apartment']):
-
-                        home_exists = True
-
+                    if loc['name'].lower() == location_name.lower():
+                        loc_exists = True
                         home_loc_id = loc_id
-
                         break
 
+                # Create the location if it doesn't exist
+                if not loc_exists:
+                    # Generate a safe ID
+                    loc_id = f"location_{location_type.lower()}_{pc_name.lower().replace(' ', '_')}"
 
-
-                if not home_exists:
-
-                    # Create new home location
-
-                    loc_id = "location_players_home"
-
+                    # Create location with proper details
                     game_state['locations'][loc_id] = {
-
-                        "name": "Player's Home",
-
-                        "description": "A safe haven from the outside world. Your personal space with familiar surroundings.",
-
-                        "ambience": "The comfortable atmosphere of home provides a sense of security.",
-
+                        "name": location_name,
+                        "description": f"A comfortable {location_type} where {pc_name} lives. It has a personal touch that makes it feel like home.",
+                        "ambience": f"The familiar atmosphere of {pc_name}'s own space provides a sense of security and comfort.",
                         "connected_to": [game_state['game_info']['current_location']],
-
                         "npcs_present": [],
-
-                        "points_of_interest": ["front_door", "living_room", "bedroom"],
-
+                        "points_of_interest": ["entrance", "living_area", "sleeping_area"],
                         "secrets": [],
-
                         "available_quests": [],
-
                         "visited": False
-
                     }
-
-
 
                     # Add connection from current location to home
-
                     current_loc = game_state['game_info']['current_location']
-
                     if loc_id not in game_state['locations'][current_loc]['connected_to']:
-
                         game_state['locations'][current_loc]['connected_to'].append(loc_id)
 
+                    home_loc_id = loc_id
 
+                # Update current location to home if appropriate action phrases are found
+                if any(x in item_lower for x in ["go to", "enter", "return to"]):
+                    game_state['game_info']['current_location'] = home_loc_id
 
-    # Extract potential new NPCs from memory updates with enhanced patterns and validation
-
+    # Extract potential new NPCs from memory updates with improved patterns and validation
     for category in ['character_development', 'relationships', 'plot_developments', 'new_npcs']:
-
         for item in memory_updates.get(category, []):
-
-            # Enhanced patterns that look for more natural introductions of characters
-
+            # Better patterns to identify actual character names
             npc_patterns = [
+                # Look for explicit introduction of a new character
+                r"(?:new character|newcomer|stranger|visitor)(?:\s+named|\s+called)?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
 
-                r"(?:new character|new npc|newcomer|stranger|visitor)(?:\s+named|\s+called)?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+                # Look for meeting someone with a name
+                r"(?:met|encountered|approached by|introduced to|greeted by)\s+(?:a\s+)?(?:person\s+|character\s+|individual\s+)?(?:named|called)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
 
-                r"(?:met|encountered|approached by|introduced to|greeted by)(?:\s+a)?\s+(?:[a-z]+\s+)?(?:named|called)?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+                # Look for a person described as X
+                r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+is\s+(?:a|an)\s+(?:[a-z]+\s+)*(?:person|character|figure|individual)",
 
-                r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:is|was)(?:\s+a)?\s+(?:mysterious|strange|new|unexpected|suspicious)\s+(?:character|person|individual|figure)",
-
-                r"(?:a|an|the)\s+(?:mysterious|strange|suspicious|cloaked|masked|hooded)\s+(?:figure|person|individual)\s+(?:named|called)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)"
-
+                # Look for a character with a specific role
+                r"(?:a|an|the)\s+(?:[a-z]+\s+)*(?:named|called)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)"
             ]
-
-
 
             npc_name = None
-
             for pattern in npc_patterns:
-
                 npc_match = re.search(pattern, item, re.IGNORECASE)
-
                 if npc_match:
-
                     potential_name = npc_match.group(1).strip()
 
-                    # Validate the name - must be more than one word or at least 4 characters
-
-                    # and can't consist solely of invalid words
-
+                    # Validate the name using stricter rules
+                    # Must be 3+ characters, have proper capitalization, not be just invalid words
                     words = potential_name.lower().split()
 
-                    if (len(words) > 1 or len(potential_name) >= 4) and not all(
+                    # Check if all words in the name are invalid
+                    all_invalid = all(word in invalid_name_words for word in words)
 
-                            word in invalid_name_words for word in words):
+                    # Check for proper capitalization (first letter capital, rest lowercase)
+                    proper_caps = all(
+                        word[0].isupper() and word[1:].islower() for word in potential_name.split() if len(word) > 1)
 
+                    if (len(potential_name) >= 3 and
+                            not all_invalid and
+                            proper_caps and
+                            not any(word in invalid_name_words for word in [potential_name.lower()])):
                         npc_name = potential_name
-
                         break
 
+            # Special case for mysterious figures when no valid name is found
+            if not npc_name and "figure" in item.lower():
+                descriptors = ["mysterious", "hooded", "cloaked", "shadowy", "suspicious", "strange", "unknown"]
 
+                # Look for any descriptors
+                found_descriptor = None
+                for desc in descriptors:
+                    if desc in item.lower():
+                        found_descriptor = desc
+                        break
 
-            # Special case for figures that are watching or mysterious
-
-            if not npc_name and ("figure" in item.lower() or "mysterious" in item.lower()):
-
-                if "watching" in item.lower() or "observing" in item.lower():
-
-                    npc_name = "Mysterious Observer"
-
-                elif "following" in item.lower() or "stalking" in item.lower():
-
-                    npc_name = "Suspicious Stalker"
-
-                elif "figure" in item.lower():
-
+                if found_descriptor:
+                    npc_name = f"{found_descriptor.capitalize()} Figure"
+                else:
                     npc_name = "Mysterious Figure"
 
-
-
             if npc_name:
-
-                # Check if this NPC already exists
-
+                # Check if this NPC already exists (case insensitive)
                 npc_exists = False
-
-                for npc_id in game_state['npcs']:
-
-                    if game_state['npcs'][npc_id]['name'].lower() == npc_name.lower():
-
+                for existing_npc_id, existing_npc in game_state['npcs'].items():
+                    if existing_npc['name'].lower() == npc_name.lower():
                         npc_exists = True
-
                         break
 
-
-
                 # Create new NPC if they don't exist
-
                 if not npc_exists:
-
+                    # Create a safe ID
                     npc_id = "npc_" + "".join([c.lower() if c.isalnum() else "_" for c in npc_name])
 
-
-
                     # Extract additional details if available
-
-                    race = "Unknown"
-
+                    race = "Human"  # Default race
                     race_match = re.search(
-
                         r"(?:a|an)\s+([a-z]+)\s+(?:man|woman|person|being|elf|dwarf|orc|goblin|creature)", item,
-
                         re.IGNORECASE)
-
                     if race_match:
-
                         race = race_match.group(1).capitalize()
 
-
-
                     # Extract description
-
-                    description = "A mysterious character recently introduced to the story."
-
+                    description = "A character recently introduced to the story."
                     desc_match = re.search(r"(?:described as|appears to be|looks like|seems to be)\s+([^\.]+)", item,
-
                                            re.IGNORECASE)
-
                     if desc_match:
-
                         description = desc_match.group(1).strip()
-
-                    elif "watching" in item.lower():
-
-                        description = "A figure who appears to be watching your movements with mysterious intent."
-
-                    elif "figure" in item.lower():
-
+                    elif "mysterious" in npc_name.lower() or "figure" in npc_name.lower():
                         description = "A mysterious figure whose purpose and identity remain unknown."
 
-
-
-                    # Extract disposition
-
+                    # Extract disposition with better defaults
                     disposition = "neutral"
+                    if "mysterious" in npc_name.lower() or "suspicious" in npc_name.lower():
+                        disposition = "mysterious"
+                    elif "friendly" in item.lower() or "helpful" in item.lower():
+                        disposition = "friendly"
+                    elif "hostile" in item.lower() or "threatening" in item.lower():
+                        disposition = "hostile"
 
-                    disp_match = re.search(r"(?:disposition|attitude|demeanor)\s+(?:is|seems|appears)\s+([^\.]+)", item,
+                    # Extract dialogue style with better defaults
+                    dialogue_style = "speaks in a neutral tone"
+                    if "mysterious" in npc_name.lower():
+                        dialogue_style = "speaks quietly and carefully"
 
-                                           re.IGNORECASE)
-
-                    if disp_match:
-
-                        disp_text = disp_match.group(1).lower().strip()
-
-                        if "friendly" in disp_text or "kind" in disp_text or "warm" in disp_text:
-
-                            disposition = "friendly"
-
-                        elif "hostile" in disp_text or "aggressive" in disp_text or "angry" in disp_text:
-
-                            disposition = "hostile"
-
-                    elif "watching" in item.lower() or "following" in item.lower() or "stalking" in item.lower():
-
-                        disposition = "suspicious"
-
-
-
-                    # Extract dialogue style
-
-                    dialogue_style = "speaks quietly and carefully"
-
-                    style_match = re.search(r"(?:speaks|talks|voice is|tone is|manner of speech is)\s+([^\.]+)", item,
-
-                                            re.IGNORECASE)
-
-                    if style_match:
-
-                        dialogue_style = style_match.group(1).strip()
-
-
-
-                    # Extract motivation
-
-                    motivation = "unknown but appears to have interest in the player"
-
+                    # Extract motivation with better defaults
+                    motivation = "unknown"
                     motiv_match = re.search(r"(?:wants|seeks|desires|motivated by|goal is|aims to)\s+([^\.]+)", item,
-
                                             re.IGNORECASE)
-
                     if motiv_match:
-
                         motivation = motiv_match.group(1).strip()
 
-
-
-                    # Create basic NPC entry with enhanced details
-
+                    # Create NPC entry with enhanced details
                     game_state['npcs'][npc_id] = {
-
                         "name": npc_name,
-
                         "race": race,
-
                         "description": description,
-
                         "location": game_state['game_info']['current_location'],
-
                         "disposition": disposition,
-
                         "motivation": motivation,
-
                         "knowledge": [],
-
                         "relationships": {},
-
                         "dialogue_style": dialogue_style
-
                     }
-
-
 
                     # Add NPC to current location
-
                     current_loc = game_state['game_info']['current_location']
-
                     if npc_id not in game_state['locations'][current_loc]['npcs_present']:
-
                         game_state['locations'][current_loc]['npcs_present'].append(npc_id)
 
-
-
     # Extract potential new locations with enhanced patterns
-
     for category in ['world_facts', 'plot_developments', 'environment_details', 'new_locations']:
-
         for item in memory_updates.get(category, []):
-
             # Check first for common locations
-
             found_common_location = False
-
             for keyword, name in common_locations.items():
-
                 if keyword in item.lower() and not any(
-
-                        loc["name"] == name for loc_id, loc in game_state['locations'].items()):
-
+                        loc["name"].lower() == name.lower() for loc_id, loc in game_state['locations'].items()):
                     loc_id = f"location_{keyword.lower().replace(' ', '_')}"
 
-                    # Create the common location
+                    # Create the common location with better description
+                    description = f"A {keyword} that appears to be important to the story."
+                    if keyword in ['house', 'home', 'apartment', 'room']:
+                        description = f"{pc_name}'s personal {keyword} where they live."
 
                     game_state['locations'][loc_id] = {
-
                         "name": name,
-
-                        "description": f"A {keyword} that appears to be important to the story.",
-
-                        "ambience": "The atmosphere is yet to be fully experienced.",
-
+                        "description": description,
+                        "ambience": "The atmosphere has a distinct character that affects your senses.",
                         "connected_to": [game_state['game_info']['current_location']],
-
                         "npcs_present": [],
-
                         "points_of_interest": [],
-
                         "secrets": [],
-
                         "available_quests": [],
-
                         "visited": False
-
                     }
 
-
-
                     # Add connection from current location
-
                     current_loc = game_state['game_info']['current_location']
-
                     if loc_id not in game_state['locations'][current_loc]['connected_to']:
-
                         game_state['locations'][current_loc]['connected_to'].append(loc_id)
 
-
-
                     found_common_location = True
-
                     break
 
-
-
             if found_common_location:
-
                 continue
 
-
-
-            # Enhanced patterns that look for more natural introductions of locations
-
+            # Enhanced patterns for detecting new locations
             location_patterns = [
-
                 r"(?:new location|new place|new area|new building|new room|new site)(?:\s+called|\s+named)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)",
-
                 r"(?:discover|found|entered|reached|arrived at|came to)(?:ed|s)?\s+(?:a|an|the)?\s+(?:place|location|area|building|room|site)(?:\s+called|\s+named)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)",
-
                 r"(?:a|an|the)\s+(?:place|location|area|building|room|site)(?:\s+called|\s+named)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)"
-
             ]
 
-
-
             location_name = None
-
             for pattern in location_patterns:
-
                 location_match = re.search(pattern, item, re.IGNORECASE)
-
                 if location_match:
-
                     potential_name = location_match.group(1).strip()
 
                     # Validate the name - must be longer than 3 characters
-
                     # and can't consist solely of invalid words
-
                     words = potential_name.lower().split()
-
                     if len(potential_name) > 3 and not all(word in invalid_name_words for word in words):
-
                         location_name = potential_name
-
                         break
-
-
 
             if location_name:
-
-                # Check if this location already exists
-
+                # Check if this location already exists (case insensitive)
                 location_exists = False
-
-                for loc_id in game_state['locations']:
-
-                    if game_state['locations'][loc_id]['name'].lower() == location_name.lower():
-
+                for loc_id, loc in game_state['locations'].items():
+                    if loc['name'].lower() == location_name.lower():
                         location_exists = True
-
                         break
-
-
 
                 # Create new location if it doesn't exist
-
                 if not location_exists:
-
                     loc_id = "location_" + "".join([c.lower() if c.isalnum() else "_" for c in location_name])
 
-
-
                     # Extract description
-
                     description = "A place recently discovered in the story."
-
                     desc_match = re.search(r"(?:described as|appears to be|looks like|seems to be)\s+([^\.]+)", item,
-
                                            re.IGNORECASE)
-
                     if desc_match:
-
                         description = desc_match.group(1).strip()
-
-
 
                     # Extract ambience
-
                     ambience = "The atmosphere has a distinct character that affects your senses."
-
                     amb_match = re.search(r"(?:atmosphere|ambience|feel|aura|mood)\s+(?:is|seems|appears)\s+([^\.]+)",
-
                                           item, re.IGNORECASE)
-
                     if amb_match:
-
                         ambience = amb_match.group(1).strip()
 
-
-
                     # Get current location to create connection
-
                     current_loc = game_state['game_info']['current_location']
-
-
 
                     # Create enhanced location entry
-
                     game_state['locations'][loc_id] = {
-
                         "name": location_name,
-
                         "description": description,
-
                         "ambience": ambience,
-
                         "connected_to": [current_loc],
-
                         "npcs_present": [],
-
                         "points_of_interest": [],
-
                         "secrets": [],
-
                         "available_quests": [],
-
                         "visited": False
-
                     }
-
-
 
                     # Add connection from current location to new location
-
                     if loc_id not in game_state['locations'][current_loc]['connected_to']:
-
                         game_state['locations'][current_loc]['connected_to'].append(loc_id)
 
-
-
     # Extract potential new items with enhanced patterns
-
     for category in ['environment_details', 'plot_developments', 'new_items']:
-
         for item in memory_updates.get(category, []):
-
-            # Enhanced patterns that look for more natural introductions of items
-
+            # Enhanced patterns for items
             item_patterns = [
-
                 r"(?:new item|new object|new artifact|new weapon|new tool)(?:\s+called|\s+named)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)",
-
                 r"(?:found|discovered|obtained|acquired|given|received)(?:s|ed)?\s+(?:a|an|the)?\s+(?:item|object|artifact|weapon|tool)(?:\s+called|\s+named)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)",
-
-                r"(?:a|an|the)\s+(?:mysterious|ancient|powerful|magical|special|unique|strange)\s+(?:item|object|artifact|weapon|tool)(?:\s+called|\s+named)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)",
-
-                r"([A-Z][a-z\s']+)(?:\s+is\s+a\s+)(?:new|mysterious|ancient|powerful|magical|special|unique|strange)\s+(?:item|object|artifact|weapon|tool)"
-
+                r"(?:a|an|the)\s+(?:mysterious|ancient|powerful|magical|special|unique|strange)\s+(?:item|object|artifact|weapon|tool)(?:\s+called|\s+named)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)"
             ]
-
-
 
             item_name = None
-
             for pattern in item_patterns:
-
                 item_match = re.search(pattern, item, re.IGNORECASE)
-
                 if item_match:
-
                     potential_name = item_match.group(1).strip()
-
                     # Validate the name
-
                     words = potential_name.lower().split()
-
                     if len(potential_name) > 3 and not all(word in invalid_name_words for word in words):
-
                         item_name = potential_name
-
                         break
-
-
 
             if item_name:
-
                 # Check if this item already exists
-
                 item_exists = False
-
                 for it_id in game_state.get('items', {}):
-
                     if game_state['items'][it_id]['name'].lower() == item_name.lower():
-
                         item_exists = True
-
                         break
-
-
 
                 # Create new item if it doesn't exist
-
                 if not item_exists:
-
                     item_id = "item_" + "".join([c.lower() if c.isalnum() else "_" for c in item_name])
 
-
-
                     # Extract description
-
                     description = "An object recently discovered in the story."
-
                     desc_match = re.search(r"(?:described as|appears to be|looks like|seems to be)\s+([^\.]+)", item,
-
                                            re.IGNORECASE)
-
                     if desc_match:
-
                         description = desc_match.group(1).strip()
-
-
 
                     # Extract properties
-
                     properties = "Has no special properties."
-
                     prop_match = re.search(
-
                         r"(?:properties|abilities|powers|functions|capabilities)\s+(?:include|are|being)\s+([^\.]+)",
-
                         item, re.IGNORECASE)
-
                     if prop_match:
-
                         properties = prop_match.group(1).strip()
 
-
-
                     # Create item entry with enhanced details
-
                     if 'items' not in game_state:
-
                         game_state['items'] = {}
 
-
-
                     game_state['items'][item_id] = {
-
                         "name": item_name,
-
                         "description": description,
-
                         "properties": properties,
-
                         "location": game_state['game_info']['current_location'],
-
                         "owner": None
-
                     }
-
-
 
                     # Consider adding to player inventory if appropriate
-
                     if "found" in item.lower() or "acquired" in item.lower() or "obtained" in item.lower() or "received" in item.lower() or "given" in item.lower():
-
                         pc_id = list(game_state['player_characters'].keys())[0]
-
                         if item_id not in game_state['player_characters'][pc_id]['inventory']:
-
                             game_state['player_characters'][pc_id]['inventory'].append(item_name)
 
-
-
     # Extract potential new quests with enhanced patterns
-
     for category in ['plot_developments', 'conversation_details', 'new_quests']:
-
         for item in memory_updates.get(category, []):
-
-            # Enhanced patterns that look for more natural introductions of quests
-
+            # Enhanced patterns for quests
             quest_patterns = [
-
                 r"(?:new quest|new mission|new task|new objective|new challenge)(?:\s+called|\s+named|to)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)",
-
                 r"(?:assigned|given|tasked with|accepted|undertook|started)(?:s|ed)?\s+(?:a|an|the)?\s+(?:quest|mission|task|objective|challenge)(?:\s+called|\s+named|to)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)",
-
-                r"(?:a|an|the)\s+(?:important|dangerous|urgent|mysterious|secret|difficult)\s+(?:quest|mission|task|objective|challenge)(?:\s+called|\s+named|to)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)",
-
-                r"([A-Z][a-z\s']+)(?:\s+is\s+a\s+)(?:new|important|dangerous|urgent|mysterious|secret|difficult)\s+(?:quest|mission|task|objective|challenge)"
-
+                r"(?:a|an|the)\s+(?:important|dangerous|urgent|mysterious|secret|difficult)\s+(?:quest|mission|task|objective|challenge)(?:\s+called|\s+named|to)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)"
             ]
 
-
-
             quest_name = None
-
             for pattern in quest_patterns:
-
                 quest_match = re.search(pattern, item, re.IGNORECASE)
-
                 if quest_match:
-
                     potential_name = quest_match.group(1).strip()
-
                     # Validate the name
-
                     words = potential_name.lower().split()
-
                     if len(potential_name) > 3 and not all(word in invalid_name_words for word in words):
-
                         quest_name = potential_name
-
                         break
-
-
 
             if quest_name:
-
                 # Check if this quest already exists
-
                 quest_exists = False
-
                 for q_id in game_state['quests']:
-
                     if game_state['quests'][q_id]['name'].lower() == quest_name.lower():
-
                         quest_exists = True
-
                         break
 
-
-
                 # Create new quest if it doesn't exist
-
                 if not quest_exists:
-
                     quest_id = "quest_" + "".join([c.lower() if c.isalnum() else "_" for c in quest_name])
 
-
-
                     # Extract description
-
                     description = "A mission recently uncovered in the story."
-
                     desc_match = re.search(r"(?:involves|requires|entails|about|concerning)\s+([^\.]+)", item,
-
                                            re.IGNORECASE)
-
                     if desc_match:
-
                         description = desc_match.group(1).strip()
 
-
-
                     # Extract giver
-
                     giver = "unknown"
-
                     giver_match = re.search(r"(?:given by|assigned by|from|offered by)\s+([^\.]+)", item, re.IGNORECASE)
-
                     if giver_match:
-
                         giver = giver_match.group(1).strip()
 
-
-
                     # Create quest entry with enhanced details
-
                     game_state['quests'][quest_id] = {
-
                         "name": quest_name,
-
                         "description": description,
-
                         "status": "active",
-
                         "giver": giver,
-
                         "steps": [
-
                             {"id": "begin_quest", "description": f"Begin {quest_name}", "completed": False}
-
                         ],
-
                         "difficulty": "standard",
-
                         "time_sensitive": False
-
                     }
 
-
-
                     # Consider updating player quests
-
                     pc_id = list(game_state['player_characters'].keys())[0]
-
                     if quest_id not in game_state['player_characters'][pc_id]['quests']:
-
                         game_state['player_characters'][pc_id]['quests'].append(quest_id)
 
-
-
                     # Add to available quests at current location
-
                     current_loc = game_state['game_info']['current_location']
-
                     if quest_id not in game_state['locations'][current_loc]['available_quests']:
-
                         game_state['locations'][current_loc]['available_quests'].append(quest_id)
-
-
 
     return game_state
 
