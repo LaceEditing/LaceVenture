@@ -1,0 +1,123 @@
+{
+  "game_info": {
+    "title": "LOOK AT ME",
+    "world_name": "AAAAAAA",
+    "genre": "AAAA",
+    "setting": "AAA",
+    "tone": "A",
+    "rating": "E",
+    "plot_pace": "Fast-paced",
+    "game_system": "AAAA RPG",
+    "session_count": 1,
+    "current_location": "starting_location",
+    "current_quest": "main_quest",
+    "time_of_day": "morning",
+    "days_passed": 0,
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "max_tokens": 2048,
+    "model_name": "benevolentjoker/nsfwmonika:latest"
+  },
+  "player_characters": {
+    "hero": {
+      "name": "A",
+      "race": "A",
+      "class": "A",
+      "level": 1,
+      "abilities": [
+        "A"
+      ],
+      "inventory": [
+        "basic_equipment",
+        "rations"
+      ],
+      "health": 20,
+      "max_health": 20,
+      "gold": 15,
+      "experience": 0,
+      "relationships": {},
+      "quests": [
+        "main_quest"
+      ],
+      "character_traits": [
+        "A"
+      ]
+    }
+  },
+  "npcs": {},
+  "locations": {
+    "starting_location": {
+      "name": "A",
+      "description": "A",
+      "ambience": "The environment sets the mood for your adventure.",
+      "connected_to": [],
+      "npcs_present": [],
+      "points_of_interest": [],
+      "secrets": [],
+      "available_quests": [
+        "main_quest"
+      ],
+      "visited": true
+    }
+  },
+  "items": {},
+  "quests": {
+    "main_quest": {
+      "name": "A",
+      "description": "A",
+      "status": "active",
+      "giver": "narrator",
+      "steps": [
+        {
+          "id": "begin_adventure",
+          "description": "Start your adventure",
+          "completed": false
+        }
+      ],
+      "difficulty": "beginner",
+      "time_sensitive": false
+    }
+  },
+  "conversation_history": [
+    {
+      "session": 1,
+      "exchanges": [
+        {
+          "speaker": "Player",
+          "text": "Please provide a brief introduction to this world and the beginning of my adventure."
+        },
+        {
+          "speaker": "DM",
+          "text": ""
+        }
+      ]
+    }
+  ],
+  "world_facts": [
+    "A"
+  ],
+  "story_arcs": {
+    "main_arc": {
+      "description": "The main storyline",
+      "status": "active",
+      "related_quests": [
+        "main_quest"
+      ],
+      "plot_twists": []
+    }
+  },
+  "narrative_memory": {
+    "world_facts": [],
+    "character_development": [],
+    "relationships": [],
+    "plot_developments": [],
+    "player_decisions": [],
+    "environment_details": [],
+    "conversation_details": [],
+    "new_npcs": [],
+    "new_locations": [],
+    "new_items": [],
+    "new_quests": []
+  },
+  "important_updates": []
+}
