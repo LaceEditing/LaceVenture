@@ -1,10 +1,14 @@
-﻿from langchain_ollama import OllamaLLM
-from langchain_core.prompts import ChatPromptTemplate
-import subprocess
+﻿import subprocess
 import json
 import os
 import glob
 import re
+import json
+import requests
+from typing import Any, Dict, List, Optional, Union, Iterator
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.callbacks.manager import CallbackManagerForLLMRun
+from typing import Any, Dict, List, Optional, Union
 
 # Directory for storing game stories
 STORIES_DIR = "rpg_stories"
@@ -114,6 +118,174 @@ New information to add to memory:
 """
 
 
+class OllamaLLM:
+    """Direct implementation for Ollama models without LangChain dependencies"""
+
+    def __init__(self, model="mistral-small", temperature=0.7, top_p=0.9, top_k=40, max_tokens=None):
+        self.model_name = model
+        self.temperature = temperature
+        self.top_p = top_p
+        self.top_k = top_k
+        self.max_tokens = max_tokens
+        self.api_base = "http://localhost:11434/api"
+
+    def invoke(self, prompt):
+        """Invoke the model with the given prompt"""
+        # Handle different input types to extract the text content
+        if isinstance(prompt, dict):
+            if "question" in prompt:
+                input_text = prompt["question"]
+            elif "content" in prompt:
+                input_text = prompt["content"]
+            else:
+                # Try to extract from other common keys
+                for key in ["text", "prompt", "input"]:
+                    if key in prompt:
+                        input_text = prompt[key]
+                        break
+                else:
+                    # If no known keys found, serialize the whole dict
+                    input_text = json.dumps(prompt)
+        elif isinstance(prompt, str):
+            input_text = prompt
+        else:
+            # Try to convert other types to string
+            input_text = str(prompt)
+
+        # Build the request payload
+        payload = {
+            "model": self.model_name,
+            "prompt": input_text,
+            "stream": False,
+            "options": {
+                "temperature": self.temperature,
+                "top_p": self.top_p,
+                "top_k": self.top_k,
+            }
+        }
+
+        if self.max_tokens:
+            payload["options"]["num_predict"] = self.max_tokens
+
+        # Make the API request
+        try:
+            response = requests.post(f"{self.api_base}/generate", json=payload)
+            response.raise_for_status()
+
+            # Parse the response
+            result = response.json()
+            if "response" in result:
+                return result["response"]
+            else:
+                return f"Error: Unexpected response format: {result}"
+
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error: {e}")
+            # Try to salvage what we can from the response
+            try:
+                text = response.text
+                # For streaming responses with multiple JSON objects
+                if '\n' in text:
+                    # Take just the first complete JSON object
+                    first_json = text.split('\n')[0]
+                    obj = json.loads(first_json)
+                    if "response" in obj:
+                        return obj["response"]
+                return f"Error parsing JSON response: {e}. Raw response: {text[:100]}..."
+            except Exception as inner_e:
+                return f"Error processing response: {inner_e}"
+        except Exception as e:
+            print(f"Error calling Ollama API: {e}")
+            return f"Error: {str(e)}"
+
+    def stream(self, prompt):
+        """Stream the model's response as individual tokens with robust error handling"""
+        # Similar input handling as invoke
+        if isinstance(prompt, dict):
+            if "question" in prompt:
+                input_text = prompt["question"]
+            elif "content" in prompt:
+                input_text = prompt["content"]
+            else:
+                for key in ["text", "prompt", "input"]:
+                    if key in prompt:
+                        input_text = prompt[key]
+                        break
+                else:
+                    input_text = json.dumps(prompt)
+        elif isinstance(prompt, str):
+            input_text = prompt
+        else:
+            input_text = str(prompt)
+
+        payload = {
+            "model": self.model_name,
+            "prompt": input_text,
+            "stream": True,
+            "options": {
+                "temperature": self.temperature,
+                "top_p": self.top_p,
+                "top_k": self.top_k,
+            }
+        }
+
+        if self.max_tokens:
+            payload["options"]["num_predict"] = self.max_tokens
+
+        try:
+            # Make a streaming request
+            response = requests.post(
+                f"{self.api_base}/generate",
+                json=payload,
+                stream=True
+            )
+
+            response.raise_for_status()
+
+            # Process the streaming response
+            for line in response.iter_lines():
+                if not line:
+                    continue
+
+                try:
+                    # Try to parse the JSON line
+                    data = json.loads(line.decode('utf-8'))
+                    if "response" in data:
+                        yield data["response"]
+                except json.JSONDecodeError as e:
+                    print(f"JSON error in stream: {e}")
+                    # Try to extract content even if JSON is malformed
+                    line_str = line.decode('utf-8')
+                    if '"response": "' in line_str:
+                        # Extract text between response quotes
+                        try:
+                            start = line_str.index('"response": "') + 13
+                            end = line_str.rindex('"')
+                            if start < end:
+                                yield line_str[start:end]
+                        except:
+                            # If extraction fails, just yield what we have
+                            yield f"[Error parsing stream response]"
+
+        except Exception as e:
+            print(f"Error streaming from Ollama API: {e}")
+            yield f"Error generating response: {str(e)}"
+
+    def update_settings(self, temperature=None, top_p=None, top_k=None, max_tokens=None):
+        """Update the model settings"""
+        if temperature is not None:
+            self.temperature = temperature
+        if top_p is not None:
+            self.top_p = top_p
+        if top_k is not None:
+            self.top_k = top_k
+        if max_tokens is not None:
+            self.max_tokens = max_tokens
+
+    def change_model(self, model_name):
+        """Change the model"""
+        self.model_name = model_name
+
 def get_available_ollama_models():
     """Get a list of available Ollama models on the system"""
     try:
@@ -203,7 +375,10 @@ def init_game_state(player_input):
             "current_location": "starting_location",
             "current_quest": "main_quest",
             "time_of_day": "morning",
-            "days_passed": 0
+            "days_passed": 0,
+            "temperature": 0.7,  # Default temperature
+            "top_p": 0.9,  # Default top_p
+            "max_tokens": 2048  # Default max tokens
         },
         "player_characters": {
             "hero": {
@@ -495,9 +670,7 @@ def generate_context(game_state, max_history=8):
 
 
 def extract_memory_updates(player_input, dm_response, current_memory, model, plot_pace="Balanced"):
-    """Extract memory updates from the exchange with improved detail capturing and plot pacing awareness"""
-    memory_prompt = ChatPromptTemplate.from_template(memory_update_template)
-
+    """Extract memory updates without using LangChain pipelines"""
     # Create a string representation of current memory
     memory_str = ""
     for category, items in current_memory.items():
@@ -506,15 +679,48 @@ def extract_memory_updates(player_input, dm_response, current_memory, model, plo
             for item in items:
                 memory_str += f"- {item}\n"
 
+    # Format the full prompt directly
+    full_prompt = f"""
+Based on the following exchange, extract important narrative information to remember:
+
+Player: {player_input}
+DM: {dm_response}
+
+Current narrative memory:
+{memory_str}
+
+Plot pacing style: {plot_pace}
+
+Extract NEW information about:
+1. World facts (new locations, history, customs, cultural elements, environment)
+2. Character development (player or NPCs, personality traits, abilities, motivations)
+3. Relationships (how characters relate to each other, alliances, rivalries, attractions)
+4. Plot development (story progression, revelations, mysteries, goals)
+5. Important decisions or actions taken (player choices, consequences, achievements)
+6. Environment details (room descriptions, objects, atmosphere, sensory details)
+7. Conversation details (important dialogue, information shared, questions raised)
+8. New NPCs (names, descriptions, roles, distinctive traits)
+9. New locations (names, descriptions, atmosphere, significance)
+10. New items (names, descriptions, properties, significance)
+11. New quests or missions (goals, requirements, rewards, related characters)
+
+For "Fast-paced" stories, highlight all plot developments.
+For "Balanced" stories, highlight only significant plot developments.
+For "Slice-of-life" stories, highlight only major plot revelations or developments.
+
+Format each piece as a brief, factual statement.
+Return ONLY new information not already in the narrative memory.
+Keep each entry concise (max 15 words).
+If no new information was revealed, return "No new information to record."
+
+New information to add to memory:
+"""
+
     # Get memory updates
     try:
-        memory_chain = memory_prompt | model
-        memory_response = memory_chain.invoke({
-            'player_input': player_input,
-            'dm_response': dm_response,
-            'current_memory': memory_str,
-            'plot_pace': plot_pace
-        })
+        # Directly invoke the model with our prompt
+        memory_response = model.invoke(full_prompt)
+        print(f"Memory response received, length: {len(memory_response)}")
 
         # Parse the response into categories
         updates = {
@@ -1093,8 +1299,7 @@ def update_game_state(game_state, player_input, dm_response, model):
 
 
 def generate_story_summary(game_state, model):
-    """Generate a narrative summary of the story so far"""
-
+    """Generate a narrative summary of the story so far without using LangChain pipelines"""
     # Gather key story elements
     plot_developments = game_state['narrative_memory'].get('plot_developments', [])
     character_developments = game_state['narrative_memory'].get('character_development', [])
@@ -1110,7 +1315,7 @@ def generate_story_summary(game_state, model):
     pc_id = list(game_state['player_characters'].keys())[0]
     pc_name = game_state['player_characters'][pc_id]['name']
 
-    # Create prompt for summary generation
+    # Create direct prompt for summary generation
     summary_prompt = f"""
     Create a narrative summary of the following story elements as if recounting a tale. 
     Write in the style of a storyteller, focusing on events that have unfolded so far.
@@ -1154,19 +1359,12 @@ def generate_story_summary(game_state, model):
     Begin with 'The tale of [Character Name] in [World]...' and end with where the character currently stands.
     """
 
-    # Create a simple prompt template
-    summary_template = ChatPromptTemplate.from_template(summary_prompt)
-    summary_chain = summary_template | model
-
-    # Generate the summary
+    # Generate the summary directly
     try:
-        narrative_summary = summary_chain.invoke({})
-
-        # Process the summary to handle bold formatting
-        processed_summary = narrative_summary.replace("**", "")  # Remove markdown bold for now
-
-        return processed_summary
+        narrative_summary = model.invoke(summary_prompt)
+        return narrative_summary
     except Exception as e:
+        print(f"Error generating summary: {e}")
         # Fallback if AI summary generation fails
         fallback_summary = [
             f"The tale of {pc_name} in {game_state['game_info']['world_name']} began with a quest for "
@@ -1186,24 +1384,85 @@ def generate_story_summary(game_state, model):
 
 def generate_dm_response(game_state, player_input, model_name):
     """Generate a DM response for the player input"""
-    model = OllamaLLM(model=model_name)
-    prompt = ChatPromptTemplate.from_template(dm_template)
-    chain = prompt | model
+    # Get model settings from game state
+    temperature = game_state['game_info'].get('temperature', 0.7)
+    top_p = game_state['game_info'].get('top_p', 0.9)
+    max_tokens = game_state['game_info'].get('max_tokens', 2048)
+
+    # Create model instance
+    model = OllamaLLM(model=model_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
 
     # Generate context from game state
     context = generate_context(game_state)
 
+    # Create the prompt manually instead of using ChatPromptTemplate
+    prompt = f"""
+You are an experienced Dungeon Master for a {game_state['game_info']['genre']} RPG set in {game_state['game_info']['world_name']}. Your role is to:
+
+1. Create an immersive world with rich descriptions that engage all senses
+2. Portray NPCs with consistent personalities, goals, and knowledge
+3. Present appropriate challenges and opportunities for character development
+4. Maintain narrative continuity and remember details from previous sessions
+5. Apply game rules fairly while prioritizing storytelling and player enjoyment
+6. Adapt the story based on player choices to create a truly interactive experience
+
+CRITICAL OUTPUT REQUIREMENTS:
+- BREVITY: Keep responses extremely short, 1 to 3 sentences maximum
+- VARIETY: Never use similar sentence structures back-to-back
+- PRECISION: Use specific, evocative details rather than general descriptions, but avoid being too verbose
+- UNIQUENESS: Avoid reusing phrases, descriptions, or scene transitions
+- FREEDOM: Only give the player specific choices when absolutely necessary, otherwise always simply ask "What will you do?" to end your output
+- GAMEPLAY: The player character should never speak on their own, unless the user tells them to in their responses. You will never generate dialogue from their perspective
+
+CONTENT RATING GUIDELINES - THIS STORY HAS A "{game_state['game_info']['rating']}" RATING:
+- E rating: Keep content family-friendly. Avoid graphic violence, frightening scenarios, sexual content, and strong language.
+- T rating: Moderate content is acceptable. Some violence, dark themes, mild language, and light romantic implications allowed, but nothing explicit or graphic.
+- M rating: Mature content is permitted. You may include graphic violence, sexual themes, intense scenarios, and strong language as appropriate to the story.
+
+PLOT PACING GUIDELINES - THIS STORY HAS A "{game_state['game_info']['plot_pace']}" PACING:
+- Fast-paced: Maintain steady forward momentum with regular plot developments and challenges. Focus primarily on action, goals, and advancing the main storyline. Character development should happen through significant events rather than quiet moments. Keep the story moving forward with new developments in most scenes.
+- Balanced: Create a rhythm alternating between plot advancement and character moments. Allow time for reflection and relationship development between significant story beats. Mix everyday interactions with moderate plot advancement. Ensure characters have time to process events before introducing new major developments.
+- Slice-of-life: Deliberately slow down plot progression in favor of everyday moments and mundane interactions. Focus on character relationships, personal growth, and daily activities rather than dramatic events. Allow extended periods where characters simply live their lives, with minimal story progression. Prioritize small, meaningful character moments and ordinary situations. Major plot developments should be rare and spaced far apart, with emphasis on how characters experience their everyday world.
+
+DYNAMIC WORLD CREATION:
+You are expected to actively create new elements to build a rich, evolving world:
+- Create new NPCs with distinct personalities, motivations, relationships, and quirks
+- Develop new locations as the story progresses, each with unique atmosphere and purpose
+- Introduce new items, objects, and artifacts that have significance to the world or story
+- Create new quests, challenges, and opportunities as they emerge naturally from the narrative
+- Add cultural elements, local customs, festivals, or historical events relevant to the setting
+- All new elements should be consistent with the established world and appropriate for the plot pacing
+
+When creating new elements:
+- Introduce them organically through the narrative, never forcing them into the story
+- Provide vivid, specific descriptions that make them memorable and distinct
+- Establish clear connections to existing elements and the overall world
+- Give names to important new elements so they can be referenced consistently
+- Use sensory details to make locations feel real and immersive
+- Give NPCs distinct speech patterns, mannerisms, or physical characteristics
+- Remember all details you create and reference them consistently in future interactions
+
+When describing environments:
+- Focus on one distinctive sensory detail rather than cataloging the entire scene
+- Mention only elements the player can directly interact with
+- Use fresh, unexpected descriptors
+
+When portraying NPCs:
+- Let their actions reveal their character instead of explaining their traits explicitly
+- Vary speech patterns and vocabulary between different characters, while adhering to their personality
+- Use minimal dialogue tags
+- Keep characters consistent with their personality and motivations
+
+The adventure takes place in a {game_state['game_info']['setting']}. The tone is {game_state['game_info']['tone']}.
+
+Current game state:
+{context}
+
+Player: {player_input}
+"""
+
     # Get DM response
-    dm_response = chain.invoke({
-        'genre': game_state['game_info']['genre'],
-        'world_name': game_state['game_info']['world_name'],
-        'setting_description': game_state['game_info']['setting'],
-        'tone': game_state['game_info']['tone'],
-        'rating': game_state['game_info']['rating'],
-        'plot_pace': game_state['game_info']['plot_pace'],
-        'context': context,
-        'question': player_input
-    })
+    dm_response = model.invoke(prompt)
 
     # Update game state
     updated_game_state = update_game_state(game_state, player_input, dm_response, model)
@@ -1215,28 +1474,61 @@ def generate_dm_response(game_state, player_input, model_name):
 
 
 def initialize_new_story(model_name, story_data):
-    """Initialize a new story with the provided data"""
+    """Initialize a new story with the provided data without using LangChain pipelines"""
     game_state = init_game_state(story_data)
-    model = OllamaLLM(model=model_name)
 
-    # Create a custom prompt for this story
-    prompt = ChatPromptTemplate.from_template(dm_template)
-    chain = prompt | model
+    # Get model settings
+    temperature = game_state['game_info'].get('temperature', 0.7)
+    top_p = game_state['game_info'].get('top_p', 0.9)
+    max_tokens = game_state['game_info'].get('max_tokens', 2048)
 
-    # Generate initial narration
+    model = OllamaLLM(model=model_name, temperature=temperature, top_p=top_p, max_tokens=max_tokens)
+
+    # Generate initial narration directly
     context = generate_context(game_state)
     initial_prompt = "Please provide a brief introduction to this world and the beginning of my adventure."
 
-    intro_response = chain.invoke({
-        'genre': game_state['game_info']['genre'],
-        'world_name': game_state['game_info']['world_name'],
-        'setting_description': game_state['game_info']['setting'],
-        'tone': game_state['game_info']['tone'],
-        'rating': game_state['game_info']['rating'],
-        'plot_pace': game_state['game_info']['plot_pace'],
-        'context': context,
-        'question': initial_prompt
-    })
+    # Create the prompt directly
+    full_prompt = f"""
+You are an experienced Dungeon Master for a {game_state['game_info']['genre']} RPG set in {game_state['game_info']['world_name']}. Your role is to:
+
+1. Create an immersive world with rich descriptions that engage all senses
+2. Portray NPCs with consistent personalities, goals, and knowledge
+3. Present appropriate challenges and opportunities for character development
+4. Maintain narrative continuity and remember details from previous sessions
+5. Apply game rules fairly while prioritizing storytelling and player enjoyment
+6. Adapt the story based on player choices to create a truly interactive experience
+
+CRITICAL OUTPUT REQUIREMENTS:
+- BREVITY: Keep responses extremely short, 1 to 3 sentences maximum
+- VARIETY: Never use similar sentence structures back-to-back
+- PRECISION: Use specific, evocative details rather than general descriptions, but avoid being too verbose
+- UNIQUENESS: Avoid reusing phrases, descriptions, or scene transitions
+- FREEDOM: Only give the player specific choices when absolutely necessary, otherwise always simply ask "What will you do?" to end your output
+- GAMEPLAY: The player character should never speak on their own, unless the user tells them to in their responses. You will never generate dialogue from their perspective
+
+CONTENT RATING GUIDELINES - THIS STORY HAS A "{game_state['game_info']['rating']}" RATING:
+- E rating: Keep content family-friendly. Avoid graphic violence, frightening scenarios, sexual content, and strong language.
+- T rating: Moderate content is acceptable. Some violence, dark themes, mild language, and light romantic implications allowed, but nothing explicit or graphic.
+- M rating: Mature content is permitted. You may include graphic violence, sexual themes, intense scenarios, and strong language as appropriate to the story.
+
+PLOT PACING GUIDELINES - THIS STORY HAS A "{game_state['game_info']['plot_pace']}" PACING:
+- Fast-paced: Maintain steady forward momentum with regular plot developments and challenges. Focus primarily on action, goals, and advancing the main storyline. Character development should happen through significant events rather than quiet moments. Keep the story moving forward with new developments in most scenes.
+- Balanced: Create a rhythm alternating between plot advancement and character moments. Allow time for reflection and relationship development between significant story beats. Mix everyday interactions with moderate plot advancement. Ensure characters have time to process events before introducing new major developments.
+- Slice-of-life: Deliberately slow down plot progression in favor of everyday moments and mundane interactions. Focus on character relationships, personal growth, and daily activities rather than dramatic events. Allow extended periods where characters simply live their lives, with minimal story progression. Prioritize small, meaningful character moments and ordinary situations. Major plot developments should be rare and spaced far apart, with emphasis on how characters experience their everyday world.
+
+DYNAMIC WORLD CREATION:
+You are expected to actively create new elements to build a rich, evolving world.
+
+The adventure takes place in a {game_state['game_info']['setting']}. The tone is {game_state['game_info']['tone']}.
+
+Current game state:
+{context}
+
+Player: {initial_prompt}
+"""
+
+    intro_response = model.invoke(full_prompt)
 
     # Add the intro to conversation history
     game_state['conversation_history'][0]['exchanges'].append(

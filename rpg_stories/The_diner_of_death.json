@@ -13,7 +13,10 @@
     "current_quest": "main_quest",
     "time_of_day": "morning",
     "days_passed": 0,
-    "model_name": "llama3:latest"
+    "model_name": "llama3:latest",
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "max_tokens": 2048
   },
   "player_characters": {
     "hero": {
@@ -211,6 +214,22 @@
         {
           "speaker": "DM",
           "text": "The darkness of the night air clings to you like a shroud as you look around, trying to make sense of the unsettling scene. The figure across the street continues to watch you with an unnerving intensity, their eyes seeming to pierce through the shadows.\n\nAs you hesitate, the wind picks up, carrying the distant sound of whispers. The words are indistinguishable, but the malevolent tone sends a chill down your spine. You can't shake the feeling that something is waiting for you in the darkness, watching and waiting for its chance to strike.\n\nThe house looms before you, a haven from the creeping dread that threatens to consume you. But as you approach the door, you notice something strange - the windows seem to be reflecting an image that doesn't belong. The figure across the street is standing just beyond the glass, their eyes burning with an otherworldly intensity.\n\nWhat will you do?"
+        },
+        {
+          "speaker": "Player",
+          "text": "scream"
+        },
+        {
+          "speaker": "DM",
+          "text": ""
+        },
+        {
+          "speaker": "Player",
+          "text": "scream again"
+        },
+        {
+          "speaker": "DM",
+          "text": ""
         }
       ]
     }
