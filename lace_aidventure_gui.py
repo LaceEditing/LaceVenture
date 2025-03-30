@@ -15,8 +15,8 @@ from PyQt6.QtGui import QFont, QColor, QTextCursor, QTextCharFormat
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QObject
 
 # Import your existing game logic - adjust import paths as needed
-# We're assuming the main.py file is in the same directory
-import main
+# We're assuming the rpg_engine.py file is in the same directory
+import rpg_engine
 
 # Constants - Lavender Theme
 SYSTEM_COLOR = "#6A4C93"  # Darkened deep lavender for better contrast
@@ -115,7 +115,7 @@ class ModelGenerationThread(QThread):
     def run(self):
         """Run the model generation"""
         try:
-            prompt = main.ChatPromptTemplate.from_template(main.dm_template)
+            prompt = rpg_engine.ChatPromptTemplate.from_template(rpg_engine.dm_template)
             chain = prompt | self.model
 
             # Stream the response token by token
@@ -138,7 +138,7 @@ class ModelGenerationThread(QThread):
         except Exception as e:
             # Fall back to standard generation if streaming fails
             try:
-                prompt = main.ChatPromptTemplate.from_template(main.dm_template)
+                prompt = rpg_engine.ChatPromptTemplate.from_template(rpg_engine.dm_template)
                 chain = prompt | self.model
                 self.full_response = chain.invoke(self.prompt_vars)
                 self.text_generated.emit(self.full_response)
@@ -202,7 +202,7 @@ class StoryCreationWizard(QWidget):
         model_label = QLabel("AI Model:")
         model_label.setStyleSheet(f"color: {HIGHLIGHT_COLOR}; font-weight: bold;")
         self.model_combo = QComboBox()
-        available_models = main.get_available_ollama_models()
+        available_models = rpg_engine.get_available_ollama_models()
         self.model_combo.addItems(available_models)
         basic_info_layout.addRow(model_label, self.model_combo)
 
@@ -1259,7 +1259,7 @@ class LaceAIdventureGUI(QMainWindow):
     def refresh_stories_list(self):
         """Refresh the list of stories"""
         self.stories_list.clear()
-        stories = main.list_stories()
+        stories = rpg_engine.list_stories()
 
         for file_name, story_title in stories:
             self.stories_list.addItem(f"{story_title} [{file_name}]")
@@ -1303,7 +1303,7 @@ class LaceAIdventureGUI(QMainWindow):
                                            f"Are you sure you want to delete '{story_title}'?",
                                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if confirm == QMessageBox.StandardButton.Yes:
-                if main.delete_story(file_name):
+                if rpg_engine.delete_story(file_name):
                     QMessageBox.information(self, "Success", f"Story '{story_title}' deleted successfully.")
                     self.refresh_stories_list()
                 else:
@@ -1314,14 +1314,14 @@ class LaceAIdventureGUI(QMainWindow):
     def create_new_story(self, player_input):
         """Create a new story from the wizard input"""
         # Initialize the game state
-        self.game_state = main.init_game_state(player_input)
+        self.game_state = rpg_engine.init_game_state(player_input)
         self.story_name = player_input["story_title"]
 
         # Initialize the model
-        self.model = main.OllamaLLM(model=self.game_state["game_info"]["model_name"])
+        self.model = rpg_engine.OllamaLLM(model=self.game_state["game_info"]["model_name"])
 
         # Generate initial context
-        context = main.generate_context(self.game_state)
+        context = rpg_engine.generate_context(self.game_state)
         initial_prompt = "Please provide a brief introduction to this world and the beginning of my adventure."
 
         # Setup prompt variables for streaming
@@ -1369,7 +1369,7 @@ class LaceAIdventureGUI(QMainWindow):
         })
 
         # Add initial narrative memory
-        initial_memory, _ = main.extract_memory_updates(
+        initial_memory, _ = rpg_engine.extract_memory_updates(
             initial_prompt,
             response,
             self.game_state['narrative_memory'],
@@ -1384,7 +1384,7 @@ class LaceAIdventureGUI(QMainWindow):
             self.game_state['narrative_memory'][category].extend(items)
 
         # Save the initial game state
-        main.save_game_state(self.game_state, self.story_name)
+        rpg_engine.save_game_state(self.game_state, self.story_name)
 
         # Enable the input field
         self.input_field.setEnabled(True)
@@ -1394,7 +1394,7 @@ class LaceAIdventureGUI(QMainWindow):
     def load_story(self, file_name):
         """Load a story from a file"""
         # Load the game state
-        self.game_state = main.load_game_state(file_name)
+        self.game_state = rpg_engine.load_game_state(file_name)
 
         if not self.game_state:
             QMessageBox.warning(self, "Error", "Failed to load the story. The save file might be corrupted.")
@@ -1404,7 +1404,7 @@ class LaceAIdventureGUI(QMainWindow):
 
         # Initialize the model
         model_name = self.game_state["game_info"].get("model_name", "mistral-small")
-        self.model = main.OllamaLLM(model=model_name)
+        self.model = rpg_engine.OllamaLLM(model=model_name)
 
         # Check if plot pacing exists, add if not (for backwards compatibility)
         if 'plot_pace' not in self.game_state['game_info']:
@@ -1461,7 +1461,11 @@ class LaceAIdventureGUI(QMainWindow):
                 "plot_developments": [],
                 "player_decisions": [],
                 "environment_details": [],
-                "conversation_details": []
+                "conversation_details": [],
+                "new_npcs": [],
+                "new_locations": [],
+                "new_items": [],
+                "new_quests": []
             }
 
             # Rebuild narrative memory from conversation history
@@ -1478,7 +1482,7 @@ class LaceAIdventureGUI(QMainWindow):
                     dm_response = all_exchanges[i + 1]['text']
 
                     # Extract memory updates
-                    memory_updates, _ = main.extract_memory_updates(
+                    memory_updates, _ = rpg_engine.extract_memory_updates(
                         player_input,
                         dm_response,
                         self.game_state['narrative_memory'],
@@ -1494,11 +1498,11 @@ class LaceAIdventureGUI(QMainWindow):
                             if item not in self.game_state['narrative_memory'][category]:
                                 self.game_state['narrative_memory'][category].append(item)
 
-        # Add environment_details and conversation_details if missing
-        if 'environment_details' not in self.game_state['narrative_memory']:
-            self.game_state['narrative_memory']['environment_details'] = []
-        if 'conversation_details' not in self.game_state['narrative_memory']:
-            self.game_state['narrative_memory']['conversation_details'] = []
+        # Add new memory categories if missing (for backwards compatibility)
+        for category in ['environment_details', 'conversation_details',
+                         'new_npcs', 'new_locations', 'new_items', 'new_quests']:
+            if category not in self.game_state['narrative_memory']:
+                self.game_state['narrative_memory'][category] = []
 
         # Clear the text display
         self.text_display.clear()
@@ -1566,7 +1570,7 @@ class LaceAIdventureGUI(QMainWindow):
         self.send_button.setEnabled(False)
 
         # Generate context
-        context = main.generate_context(self.game_state)
+        context = rpg_engine.generate_context(self.game_state)
 
         # Setup prompt variables
         prompt_vars = {
@@ -1629,7 +1633,7 @@ class LaceAIdventureGUI(QMainWindow):
         plot_pace = self.game_state['game_info'].get('plot_pace', 'Balanced')
 
         # Update memory
-        memory_updates, important_updates = main.extract_memory_updates(
+        memory_updates, important_updates = rpg_engine.extract_memory_updates(
             player_input,
             dm_response,
             self.game_state['narrative_memory'],
@@ -1646,8 +1650,8 @@ class LaceAIdventureGUI(QMainWindow):
                 if item not in self.game_state['narrative_memory'][category]:
                     self.game_state['narrative_memory'][category].append(item)
 
-        # Dynamic element creation from the main.py functions
-        self.game_state = main.update_dynamic_elements(self.game_state, memory_updates)
+        # Dynamic element creation from the rpg_engine.py functions
+        self.game_state = rpg_engine.update_dynamic_elements(self.game_state, memory_updates)
 
         # Store important updates
         if important_updates:
@@ -1659,7 +1663,7 @@ class LaceAIdventureGUI(QMainWindow):
                 self.text_display.append_system_message(f"* {update}")
 
         # Save the game state
-        main.save_game_state(self.game_state, self.story_name)
+        rpg_engine.save_game_state(self.game_state, self.story_name)
 
         # Update the game status panel
         self.update_game_status()
@@ -1702,7 +1706,7 @@ class LaceAIdventureGUI(QMainWindow):
     def save_game(self):
         """Save the game"""
         if self.game_state and self.story_name:
-            main.save_game_state(self.game_state, self.story_name)
+            rpg_engine.save_game_state(self.game_state, self.story_name)
             self.text_display.append_system_message("Game saved!")
 
     def show_memory(self):
@@ -1781,6 +1785,34 @@ class LaceAIdventureGUI(QMainWindow):
         if memory.get('conversation_details', []):
             memory_html += "<h3 style='color: #4A2D7D;'>Conversation Details:</h3><ul>"
             for item in memory['conversation_details']:
+                memory_html += f"<li style='color: #3A1E64; margin-bottom: 5px;'>{item}</li>"
+            memory_html += "</ul>"
+
+        # New NPCs
+        if memory.get('new_npcs', []):
+            memory_html += "<h3 style='color: #4A2D7D;'>New Characters:</h3><ul>"
+            for item in memory['new_npcs']:
+                memory_html += f"<li style='color: #3A1E64; margin-bottom: 5px;'>{item}</li>"
+            memory_html += "</ul>"
+
+        # New locations
+        if memory.get('new_locations', []):
+            memory_html += "<h3 style='color: #4A2D7D;'>New Locations:</h3><ul>"
+            for item in memory['new_locations']:
+                memory_html += f"<li style='color: #3A1E64; margin-bottom: 5px;'>{item}</li>"
+            memory_html += "</ul>"
+
+        # New items
+        if memory.get('new_items', []):
+            memory_html += "<h3 style='color: #4A2D7D;'>New Items:</h3><ul>"
+            for item in memory['new_items']:
+                memory_html += f"<li style='color: #3A1E64; margin-bottom: 5px;'>{item}</li>"
+            memory_html += "</ul>"
+
+        # New quests
+        if memory.get('new_quests', []):
+            memory_html += "<h3 style='color: #4A2D7D;'>New Quests:</h3><ul>"
+            for item in memory['new_quests']:
                 memory_html += f"<li style='color: #3A1E64; margin-bottom: 5px;'>{item}</li>"
             memory_html += "</ul>"
 
@@ -1921,7 +1953,7 @@ class LaceAIdventureGUI(QMainWindow):
         """Quit the current game"""
         if self.game_state and self.story_name:
             # Save the game state
-            main.save_game_state(self.game_state, self.story_name)
+            rpg_engine.save_game_state(self.game_state, self.story_name)
 
         # Reset the game state
         self.game_state = None
@@ -1949,7 +1981,7 @@ class SummaryWorker(QObject):
     def generate_summary(self):
         """Generate a summary of the story so far"""
         try:
-            summary = main.generate_story_summary(self.game_state, self.model)
+            summary = rpg_engine.generate_story_summary(self.game_state, self.model)
             self.summary_ready.emit(summary)
         except Exception as e:
             self.summary_ready.emit(f"Error generating summary: {str(e)}")
