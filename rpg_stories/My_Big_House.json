@@ -1,0 +1,200 @@
+{
+  "game_info": {
+    "title": "My Big House",
+    "world_name": "Earth",
+    "genre": "Modern",
+    "setting": "A real world parallel",
+    "tone": "Dark Romance",
+    "rating": "M",
+    "plot_pace": "Balanced",
+    "game_system": "Modern RPG",
+    "session_count": 1,
+    "current_location": "starting_location",
+    "current_quest": "main_quest",
+    "time_of_day": "morning",
+    "days_passed": 0,
+    "model_name": "llama2-uncensored:latest"
+  },
+  "player_characters": {
+    "hero": {
+      "name": "Ralph",
+      "race": "Human",
+      "class": "Musician",
+      "level": 1,
+      "abilities": [
+        "Persuasion"
+      ],
+      "inventory": [
+        "basic_equipment",
+        "rations"
+      ],
+      "health": 20,
+      "max_health": 20,
+      "gold": 15,
+      "experience": 0,
+      "relationships": {},
+      "quests": [
+        "main_quest"
+      ],
+      "character_traits": [
+        "Persuasive",
+        "Charismatic",
+        "Charming"
+      ]
+    }
+  },
+  "npcs": {
+    "npc_catherine": {
+      "name": "Catherine",
+      "race": "Human",
+      "description": "A hot young woman",
+      "location": "starting_location",
+      "disposition": "friendly",
+      "motivation": "sexual valiation",
+      "knowledge": [],
+      "relationships": {},
+      "dialogue_style": "sensual and flirtatious"
+    }
+  },
+  "locations": {
+    "starting_location": {
+      "name": "Ralph's House",
+      "description": "It's his house",
+      "ambience": "The environment sets the mood for your adventure.",
+      "connected_to": [],
+      "npcs_present": [
+        "npc_catherine"
+      ],
+      "points_of_interest": [],
+      "secrets": [],
+      "available_quests": [
+        "main_quest"
+      ],
+      "visited": true
+    }
+  },
+  "items": {},
+  "quests": {
+    "main_quest": {
+      "name": "Find a date",
+      "description": "go get one",
+      "status": "active",
+      "giver": "narrator",
+      "steps": [
+        {
+          "id": "begin_adventure",
+          "description": "Start your adventure",
+          "completed": false
+        }
+      ],
+      "difficulty": "beginner",
+      "time_sensitive": false
+    }
+  },
+  "conversation_history": [
+    {
+      "session": 1,
+      "exchanges": [
+        {
+          "speaker": "Player",
+          "text": "Please provide a brief introduction to this world and the beginning of my adventure."
+        },
+        {
+          "speaker": "DM",
+          "text": "Sure, the current game state is as follows:\n1. Game: My Big House\n2. World: Earth\n3. Genre: Modern\n4. Rating: M\n5. Plot Pacing: Balanced\n6. Current location: Ralph's House\n7. Time: morning, Day 0\n8. Ambience: The environment sets the mood for your adventure.\n9. NPCs present:\n- Catherine: A hot young woman\n10. Disposition: friendly, Motivation: sexual valiation\n11. Dialogue style: sensual and flirtatious\n12. Current quest - Find a date: go get one\n13. Quest progress: \u25a1 Start your adventure\n\nYour character Ralph is a Level 1 Human Musician with Health of 20/20, Character traits Persuasive, Charismatic, Charming and Abilities Persuasion. You have basic_equipment, rations in your inventory with Gold of 15."
+        },
+        {
+          "speaker": "Player",
+          "text": "Enter the house"
+        },
+        {
+          "speaker": "DM",
+          "text": "Ralph enters the house, which is located at \"Ralph's House\". It appears to be a comfortable and cozy home, with plenty of natural light streaming in through the windows. He decides to take a seat on the couch, where he can relax and reflect on his current situation. As he sits down, he takes out a notebook from his inventory and begins to jot down some notes about his current quest - finding a date.\n\n"
+        },
+        {
+          "speaker": "Player",
+          "text": "Call up a lady"
+        },
+        {
+          "speaker": "DM",
+          "text": "Ralph pulls out his phone and starts scrolling through the dating app, looking for potential matches. He comes across a profile that catches his eye, a beautiful woman named \"Sophia\". As he begins to read her profile, it seems like she has all the qualities he's been looking for - intelligence, humor, and a passion for travel. Ralph decides to send Sophia a message, introducing himself and expressing his interest in getting to know her better.\n\nAfter exchanging a few messages, Sophia suggests meeting up for a coffee date later that day. Ralph is thrilled at the prospect of finally having a chance to meet someone new, and agrees to the plan. As he leaves the house, he feels a sense of excitement and anticipation about what the future may hold."
+        },
+        {
+          "speaker": "Player",
+          "text": "Meet up with Sophia"
+        },
+        {
+          "speaker": "DM",
+          "text": "Ralph arrives at the caf\u00e9 where he met Sophia earlier in the day, eager to get to know her better. As he walks in, he sees that she's already there waiting for him, and they both greet each other warmly. They sit down at a table and begin talking about themselves, sharing stories and jokes to break the ice.\nAs they talk, Ralph finds himself becoming more and more attracted to Sophia - her intelligence, humor, and passion for travel make her an incredibly interesting person to be around. He can't help but feel a sense of excitement as he thinks about the possibility of this new relationship developing into something more."
+        }
+      ]
+    }
+  ],
+  "world_facts": [
+    "It's just like real life"
+  ],
+  "story_arcs": {
+    "main_arc": {
+      "description": "The main storyline",
+      "status": "active",
+      "related_quests": [
+        "main_quest"
+      ],
+      "plot_twists": []
+    }
+  },
+  "narrative_memory": {
+    "world_facts": [
+      "The current game world is Earth and the genre is modern."
+    ],
+    "character_development": [
+      "Ralph's character traits are Persuasive, Charismatic, Charming. He has basic equipment, rations, and Gold of 15 in his inventory."
+    ],
+    "relationships": [
+      "Ralph's NPCs include Catherine, who is friendly, motivated by sexual validation, with a sensual dialogue style. Ralph also has relationships with other characters in the game world that may be relevant to his quest.",
+      "Ralph's NPCs include Catherine, who is friendly, motivated by sexual validation, with a sensual dialogue style. He also has relationships with other characters in the game world that may be relevant to his quest.",
+      "As he progresses through his quest, Ralph must decide how to interact with these individuals, which can impact their perception of him and ultimately shape the outcome of his storyline.",
+      "-"
+    ],
+    "plot_developments": [
+      "Ralph's current quest is to find a date, and he must progress through multiple steps and obstacles to accomplish this task. This includes identifying potential dating partners, developing a rapport, and eventually making a decision about who to pursue further.",
+      "Important decisions or actions taken: Ralph has made several important decisions already in the game world, including choosing which NPCs to approach for help or advice. He has also made choices that affect how other characters perceive him and his reputation within the game world."
+    ],
+    "player_decisions": [
+      "or actions taken: Ralph has made several important decisions already in the game world, including choosing which NPCs to approach for help or advice. He has also made choices that affect how other characters perceive him and his reputation within the game world.",
+      "-"
+    ],
+    "environment_details": [
+      "The current location is Ralph's house, which provides a specific atmosphere and environment for his adventure. Other locations in the game world may be explored and encountered during Ralph's quest to find a date."
+    ],
+    "conversation_details": [
+      "Ralph has engaged in several conversations with NPCs already in the game world, providing important information about other characters and their motivations. These conversations have also helped shape Ralph's own personality and character traits as he interacts with others."
+    ],
+    "new_npcs": [
+      "Ralph has encountered new characters so far that may play a role in his quest to find a date, including Catherine mentioned earlier. Other potential romantic interests or allies may be introduced later in the game world.",
+      "Environment Details:",
+      "The current location is Ralph's house, which provides a specific atmosphere and environment for his adventure. Other locations in the game world may be explored and encountered during Ralph's quest to find a date.",
+      "-"
+    ],
+    "new_locations": [
+      "Ralph's current location is Ralph's house, but he will likely encounter other locations as he progresses through his quest. These new places and environments will provide different challenges and obstacles to overcome."
+    ],
+    "new_items": [
+      "Ralph currently has basic equipment and rations in his inventory, but he may acquire new items or resources later that can help him with his quest, such as clothing for a date, transportation, or money to pay for dates.",
+      "or resources may be acquired later that can help him with his quest, such as clothing for a date, transportation, or money to pay for dates.",
+      "Conversation Details:",
+      "Ralph has engaged in several conversations with NPCs already in the game world, providing important information about other characters and their motivations. These conversations have also helped shape Ralph's own personality and character traits as he interacts with others.",
+      "New Quests or Missions:",
+      "Ralph's current quest is to find a date, but there may be other related quests or missions that involve exploring new locations, meeting new characters, and uncovering secrets within the game world."
+    ],
+    "new_quests": [
+      "or missions: Ralph's current quest is to find a date, but there may be other related quests or missions that involve exploring new locations, meeting new characters, and uncovering secrets within the game world."
+    ]
+  },
+  "important_updates": [
+    "New Character: Ralph has encountered new characters so far that may play a role in his quest to find a date, including Catherine mentioned earlier. Other potential romantic interests or allies may be introduced later in the game world.",
+    "New Character: Environment Details:",
+    "New Character: The current location is Ralph's house, which provides a specific atmosphere and environment for his adventure. Other locations in the game world may be explored and encountered during Ralph's quest to find a date.",
+    "New Character: -"
+  ]
+}

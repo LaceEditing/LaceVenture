@@ -1,0 +1,155 @@
+{
+  "game_info": {
+    "title": "My Big House 2",
+    "world_name": "Earth",
+    "genre": "Modern",
+    "setting": "A real world parallel",
+    "tone": "Dark Romance",
+    "rating": "M",
+    "plot_pace": "Balanced",
+    "game_system": "Modern RPG",
+    "session_count": 1,
+    "current_location": "starting_location",
+    "current_quest": "main_quest",
+    "time_of_day": "morning",
+    "days_passed": 0,
+    "model_name": "llama3.3:latest"
+  },
+  "player_characters": {
+    "hero": {
+      "name": "Ralph",
+      "race": "Human",
+      "class": "Musician",
+      "level": 1,
+      "abilities": [
+        "Persuasion"
+      ],
+      "inventory": [
+        "basic_equipment",
+        "rations"
+      ],
+      "health": 20,
+      "max_health": 20,
+      "gold": 15,
+      "experience": 0,
+      "relationships": {},
+      "quests": [
+        "main_quest"
+      ],
+      "character_traits": [
+        "Persuasive",
+        "Charismatic",
+        "Charming"
+      ]
+    }
+  },
+  "npcs": {
+    "npc_catherine": {
+      "name": "Catherine",
+      "race": "Human",
+      "description": "A hot young woman",
+      "location": "starting_location",
+      "disposition": "friendly",
+      "motivation": "sexual valiation",
+      "knowledge": [],
+      "relationships": {},
+      "dialogue_style": "sensual and flirtatious"
+    }
+  },
+  "locations": {
+    "starting_location": {
+      "name": "Ralph's House",
+      "description": "It's his house",
+      "ambience": "The environment sets the mood for your adventure.",
+      "connected_to": [],
+      "npcs_present": [
+        "npc_catherine"
+      ],
+      "points_of_interest": [],
+      "secrets": [],
+      "available_quests": [
+        "main_quest"
+      ],
+      "visited": true
+    }
+  },
+  "items": {},
+  "quests": {
+    "main_quest": {
+      "name": "Find a date",
+      "description": "go get one",
+      "status": "active",
+      "giver": "narrator",
+      "steps": [
+        {
+          "id": "begin_adventure",
+          "description": "Start your adventure",
+          "completed": false
+        }
+      ],
+      "difficulty": "beginner",
+      "time_sensitive": false
+    }
+  },
+  "conversation_history": [
+    {
+      "session": 1,
+      "exchanges": [
+        {
+          "speaker": "Player",
+          "text": "Please provide a brief introduction to this world and the beginning of my adventure."
+        },
+        {
+          "speaker": "DM",
+          "text": "Morning sunlight streams through the blinds, casting a warm glow over Ralph's House. Catherine lounges on the couch, her eyes fixed on you with an unmistakable spark of interest. The air is filled with the sweet scent of freshly brewed coffee. What will you do?"
+        }
+      ]
+    }
+  ],
+  "world_facts": [
+    "It's just like real life"
+  ],
+  "story_arcs": {
+    "main_arc": {
+      "description": "The main storyline",
+      "status": "active",
+      "related_quests": [
+        "main_quest"
+      ],
+      "plot_twists": []
+    }
+  },
+  "narrative_memory": {
+    "world_facts": [
+      "Ralph's House exists.",
+      "2."
+    ],
+    "character_development": [
+      "Catherine is interested in player.",
+      "3."
+    ],
+    "relationships": [
+      "Catherine shows interest in player.",
+      "4."
+    ],
+    "plot_developments": [],
+    "player_decisions": [],
+    "environment_details": [
+      "Room has couch and blinds.",
+      "5. Environment details: Coffee is present.",
+      "6."
+    ],
+    "conversation_details": [],
+    "new_npcs": [
+      "Catherine is an NPC.",
+      "8. New NPCs: Ralph is an NPC (mentioned)."
+    ],
+    "new_locations": [
+      "Ralph's House is a location.",
+      "7."
+    ],
+    "new_items": [],
+    "new_quests": []
+  },
+  "important_updates": []
+}

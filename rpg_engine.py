@@ -631,25 +631,98 @@ def extract_memory_updates(player_input, dm_response, current_memory, model, plo
 
 
 def update_dynamic_elements(game_state, memory_updates):
-    """Updates game state with new elements the AI has created using enhanced detection patterns"""
+    """Updates game state with new elements the AI has created using enhanced detection patterns and validation"""
 
-    # Extract potential new NPCs from memory updates and direct scanning of text
+    # Common words that should not be part of names or standalone names
+    invalid_name_words = ['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'being', 'been',
+                          'across', 'around', 'at', 'by', 'for', 'from', 'in', 'to', 'with',
+                          'watching', 'standing', 'looking', 'waiting', 'figure', 'person']
+
+    # Common locations that should be recognized
+    common_locations = {
+        'house': 'Player\'s House',
+        'home': 'Player\'s Home',
+        'apartment': 'Player\'s Apartment',
+        'room': 'Player\'s Room',
+        'building': 'Mysterious Building',
+        'street': 'Street Outside',
+        'town': 'Town Center',
+        'city': 'City Center',
+        'forest': 'Dark Forest',
+        'cave': 'Mysterious Cave',
+        'dungeon': 'Ancient Dungeon',
+        'castle': 'Imposing Castle',
+        'tavern': 'Local Tavern',
+        'inn': 'Cozy Inn',
+        'shop': 'General Store',
+        'market': 'Town Market'
+    }
+
+    # Check for explicitly mentioned home/house in player input
+    for category in ['player_decisions', 'plot_developments']:
+        for item in memory_updates.get(category, []):
+            if any(loc in item.lower() for loc in ['home', 'house', 'apartment']):
+                # Create player's home location if it doesn't exist
+                home_exists = False
+                home_loc_id = None
+                for loc_id, loc in game_state['locations'].items():
+                    if any(home_word in loc['name'].lower() for home_word in ['home', 'house', 'apartment']):
+                        home_exists = True
+                        home_loc_id = loc_id
+                        break
+
+                if not home_exists:
+                    # Create new home location
+                    loc_id = "location_players_home"
+                    game_state['locations'][loc_id] = {
+                        "name": "Player's Home",
+                        "description": "A safe haven from the outside world. Your personal space with familiar surroundings.",
+                        "ambience": "The comfortable atmosphere of home provides a sense of security.",
+                        "connected_to": [game_state['game_info']['current_location']],
+                        "npcs_present": [],
+                        "points_of_interest": ["front_door", "living_room", "bedroom"],
+                        "secrets": [],
+                        "available_quests": [],
+                        "visited": False
+                    }
+
+                    # Add connection from current location to home
+                    current_loc = game_state['game_info']['current_location']
+                    if loc_id not in game_state['locations'][current_loc]['connected_to']:
+                        game_state['locations'][current_loc]['connected_to'].append(loc_id)
+
+    # Extract potential new NPCs from memory updates with enhanced patterns and validation
     for category in ['character_development', 'relationships', 'plot_developments', 'new_npcs']:
         for item in memory_updates.get(category, []):
             # Enhanced patterns that look for more natural introductions of characters
             npc_patterns = [
-                r"(?:new character|new npc|newcomer|stranger|visitor|figure)(?:\s+named|\s+called)?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
-                r"(?:met|encountered|approached by|introduced to|greeted by|spoken to by)(?:\s+a)?\s+(?:[a-z]+\s+)?(?:named|called)?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
-                r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)(?:\s+(?:a|an|the)\s+[a-z]+)?\s+(?:enters|appears|arrives|joins|approached|introduces|revealed)",
-                r"(?:a|an)\s+(?:new|mysterious|strange|unexpected|local)\s+(?:person|individual|character|figure|man|woman)\s+(?:named|called)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)"
+                r"(?:new character|new npc|newcomer|stranger|visitor)(?:\s+named|\s+called)?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+                r"(?:met|encountered|approached by|introduced to|greeted by)(?:\s+a)?\s+(?:[a-z]+\s+)?(?:named|called)?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+                r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(?:is|was)(?:\s+a)?\s+(?:mysterious|strange|new|unexpected|suspicious)\s+(?:character|person|individual|figure)",
+                r"(?:a|an|the)\s+(?:mysterious|strange|suspicious|cloaked|masked|hooded)\s+(?:figure|person|individual)\s+(?:named|called)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)"
             ]
 
             npc_name = None
             for pattern in npc_patterns:
                 npc_match = re.search(pattern, item, re.IGNORECASE)
                 if npc_match:
-                    npc_name = npc_match.group(1).strip()
-                    break
+                    potential_name = npc_match.group(1).strip()
+                    # Validate the name - must be more than one word or at least 4 characters
+                    # and can't consist solely of invalid words
+                    words = potential_name.lower().split()
+                    if (len(words) > 1 or len(potential_name) >= 4) and not all(
+                            word in invalid_name_words for word in words):
+                        npc_name = potential_name
+                        break
+
+            # Special case for figures that are watching or mysterious
+            if not npc_name and ("figure" in item.lower() or "mysterious" in item.lower()):
+                if "watching" in item.lower() or "observing" in item.lower():
+                    npc_name = "Mysterious Observer"
+                elif "following" in item.lower() or "stalking" in item.lower():
+                    npc_name = "Suspicious Stalker"
+                elif "figure" in item.lower():
+                    npc_name = "Mysterious Figure"
 
             if npc_name:
                 # Check if this NPC already exists
@@ -672,11 +745,15 @@ def update_dynamic_elements(game_state, memory_updates):
                         race = race_match.group(1).capitalize()
 
                     # Extract description
-                    description = "A character recently introduced to the story."
+                    description = "A mysterious character recently introduced to the story."
                     desc_match = re.search(r"(?:described as|appears to be|looks like|seems to be)\s+([^\.]+)", item,
                                            re.IGNORECASE)
                     if desc_match:
                         description = desc_match.group(1).strip()
+                    elif "watching" in item.lower():
+                        description = "A figure who appears to be watching your movements with mysterious intent."
+                    elif "figure" in item.lower():
+                        description = "A mysterious figure whose purpose and identity remain unknown."
 
                     # Extract disposition
                     disposition = "neutral"
@@ -688,16 +765,18 @@ def update_dynamic_elements(game_state, memory_updates):
                             disposition = "friendly"
                         elif "hostile" in disp_text or "aggressive" in disp_text or "angry" in disp_text:
                             disposition = "hostile"
+                    elif "watching" in item.lower() or "following" in item.lower() or "stalking" in item.lower():
+                        disposition = "suspicious"
 
                     # Extract dialogue style
-                    dialogue_style = "speaks normally"
+                    dialogue_style = "speaks quietly and carefully"
                     style_match = re.search(r"(?:speaks|talks|voice is|tone is|manner of speech is)\s+([^\.]+)", item,
                                             re.IGNORECASE)
                     if style_match:
                         dialogue_style = style_match.group(1).strip()
 
                     # Extract motivation
-                    motivation = "unknown"
+                    motivation = "unknown but appears to have interest in the player"
                     motiv_match = re.search(r"(?:wants|seeks|desires|motivated by|goal is|aims to)\s+([^\.]+)", item,
                                             re.IGNORECASE)
                     if motiv_match:
@@ -724,20 +803,54 @@ def update_dynamic_elements(game_state, memory_updates):
     # Extract potential new locations with enhanced patterns
     for category in ['world_facts', 'plot_developments', 'environment_details', 'new_locations']:
         for item in memory_updates.get(category, []):
+            # Check first for common locations
+            found_common_location = False
+            for keyword, name in common_locations.items():
+                if keyword in item.lower() and not any(
+                        loc["name"] == name for loc_id, loc in game_state['locations'].items()):
+                    loc_id = f"location_{keyword.lower().replace(' ', '_')}"
+                    # Create the common location
+                    game_state['locations'][loc_id] = {
+                        "name": name,
+                        "description": f"A {keyword} that appears to be important to the story.",
+                        "ambience": "The atmosphere is yet to be fully experienced.",
+                        "connected_to": [game_state['game_info']['current_location']],
+                        "npcs_present": [],
+                        "points_of_interest": [],
+                        "secrets": [],
+                        "available_quests": [],
+                        "visited": False
+                    }
+
+                    # Add connection from current location
+                    current_loc = game_state['game_info']['current_location']
+                    if loc_id not in game_state['locations'][current_loc]['connected_to']:
+                        game_state['locations'][current_loc]['connected_to'].append(loc_id)
+
+                    found_common_location = True
+                    break
+
+            if found_common_location:
+                continue
+
             # Enhanced patterns that look for more natural introductions of locations
             location_patterns = [
                 r"(?:new location|new place|new area|new building|new room|new site)(?:\s+called|\s+named)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)",
                 r"(?:discover|found|entered|reached|arrived at|came to)(?:ed|s)?\s+(?:a|an|the)?\s+(?:place|location|area|building|room|site)(?:\s+called|\s+named)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)",
-                r"(?:a|an|the)\s+(?:place|location|area|building|room|site)(?:\s+called|\s+named)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)",
-                r"([A-Z][a-z\s']+)(?:\s+is\s+a\s+)(?:new|nearby|local|mysterious|strange|hidden|secret|ancient|forgotten)\s+(?:place|location|area|building|room|site)"
+                r"(?:a|an|the)\s+(?:place|location|area|building|room|site)(?:\s+called|\s+named)?\s+(?:the|a|an)?\s*([A-Z][a-z\s']+)"
             ]
 
             location_name = None
             for pattern in location_patterns:
                 location_match = re.search(pattern, item, re.IGNORECASE)
                 if location_match:
-                    location_name = location_match.group(1).strip()
-                    break
+                    potential_name = location_match.group(1).strip()
+                    # Validate the name - must be longer than 3 characters
+                    # and can't consist solely of invalid words
+                    words = potential_name.lower().split()
+                    if len(potential_name) > 3 and not all(word in invalid_name_words for word in words):
+                        location_name = potential_name
+                        break
 
             if location_name:
                 # Check if this location already exists
@@ -759,7 +872,7 @@ def update_dynamic_elements(game_state, memory_updates):
                         description = desc_match.group(1).strip()
 
                     # Extract ambience
-                    ambience = "The atmosphere is yet to be fully experienced."
+                    ambience = "The atmosphere has a distinct character that affects your senses."
                     amb_match = re.search(r"(?:atmosphere|ambience|feel|aura|mood)\s+(?:is|seems|appears)\s+([^\.]+)",
                                           item, re.IGNORECASE)
                     if amb_match:
@@ -800,8 +913,12 @@ def update_dynamic_elements(game_state, memory_updates):
             for pattern in item_patterns:
                 item_match = re.search(pattern, item, re.IGNORECASE)
                 if item_match:
-                    item_name = item_match.group(1).strip()
-                    break
+                    potential_name = item_match.group(1).strip()
+                    # Validate the name
+                    words = potential_name.lower().split()
+                    if len(potential_name) > 3 and not all(word in invalid_name_words for word in words):
+                        item_name = potential_name
+                        break
 
             if item_name:
                 # Check if this item already exists
@@ -863,8 +980,12 @@ def update_dynamic_elements(game_state, memory_updates):
             for pattern in quest_patterns:
                 quest_match = re.search(pattern, item, re.IGNORECASE)
                 if quest_match:
-                    quest_name = quest_match.group(1).strip()
-                    break
+                    potential_name = quest_match.group(1).strip()
+                    # Validate the name
+                    words = potential_name.lower().split()
+                    if len(potential_name) > 3 and not all(word in invalid_name_words for word in words):
+                        quest_name = potential_name
+                        break
 
             if quest_name:
                 # Check if this quest already exists
