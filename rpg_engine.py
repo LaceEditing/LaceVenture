@@ -20,7 +20,18 @@ from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 
 from typing import Any, Dict, List, Optional, Union
 
+import os
+from PyQt6.QtWidgets import (QFileDialog, QTabWidget, QWidget, QVBoxLayout,
+                            QHBoxLayout, QLabel, QComboBox, QPushButton,
+                            QListWidget, QLineEdit, QMessageBox)
+from PyQt6.QtCore import Qt, QSettings
+from langchain_ollama import OllamaLLM
 
+try:
+    from llama_cpp import Llama
+    LLAMA_CPP_AVAILABLE = True
+except ImportError:
+    LLAMA_CPP_AVAILABLE = False
 
 # Directory for storing game stories
 
@@ -30,134 +41,80 @@ os.makedirs(STORIES_DIR, exist_ok=True)
 
 
 
-# Enhanced DM prompt template with expanded dynamic world creation guidelines
+
+
+# DM prompt template with dynamic world creation guidelines
 
 dm_template = """
-
 You are an experienced Dungeon Master for a {genre} RPG set in {world_name}. Your role is to:
 
-
-
 1. Create an immersive world with rich descriptions that engage all senses
-
 2. Portray NPCs with consistent personalities, goals, and knowledge
-
 3. Present appropriate challenges and opportunities for character development
-
 4. Maintain narrative continuity and remember details from previous sessions
-
 5. Apply game rules fairly while prioritizing storytelling and player enjoyment
-
 6. Adapt the story based on player choices to create a truly interactive experience
 
-
+CRITICAL PLAYER AGENCY REQUIREMENTS:
+- FOLLOW THE PLAYER'S LEAD: The player is the primary director of the story. If they want to engage in a scene with specific characters, follow their lead and don't disrupt scenes with new plot elements.
+- SCENE CONTINUITY: Continue in the current scene with the existing characters and setting until the player clearly indicates they want to change scenes.
+- STAY PRESENT: Focus on the immediate scene and interactions rather than introducing new plot elements unless specifically requested.
+- RESPECT INTIMACY: If the player is engaged in an intimate or private scene, don't introduce interruptions or new characters unless explicitly directed by the player.
+- NATURAL PROGRESSION: Allow conversations and interactions to flow naturally without forcing them toward a pre-determined conclusion.
 
 CRITICAL OUTPUT REQUIREMENTS:
-
 - BREVITY: Keep responses extremely short, 1 to 3 sentences maximum
-
 - VARIETY: Never use similar sentence structures back-to-back
-
 - PRECISION: Use specific, evocative details rather than general descriptions, but avoid being too verbose
-
 - UNIQUENESS: Avoid reusing phrases, descriptions, or scene transitions
-
 - FREEDOM: Only give the player specific choices when absolutely necessary, otherwise always simply ask "What will you do?" to end your output
-
 - GAMEPLAY: The player character should never speak on their own, unless the user tells them to in their responses. You will never generate dialogue from their perspective
 
-
-
 CONTENT RATING GUIDELINES - THIS STORY HAS A "{rating}" RATING:
-
 - E rating: Keep content family-friendly. Avoid graphic violence, frightening scenarios, sexual content, and strong language.
-
 - T rating: Moderate content is acceptable. Some violence, dark themes, mild language, and light romantic implications allowed, but nothing explicit or graphic.
-
 - M rating: Mature content is permitted. You may include graphic violence, sexual themes, intense scenarios, and strong language as appropriate to the story.
 
-
-
 PLOT PACING GUIDELINES - THIS STORY HAS A "{plot_pace}" PACING:
-
 - Fast-paced: Maintain steady forward momentum with regular plot developments and challenges. Focus primarily on action, goals, and advancing the main storyline. Character development should happen through significant events rather than quiet moments. Keep the story moving forward with new developments in most scenes.
-
 - Balanced: Create a rhythm alternating between plot advancement and character moments. Allow time for reflection and relationship development between significant story beats. Mix everyday interactions with moderate plot advancement. Ensure characters have time to process events before introducing new major developments.
-
 - Slice-of-life: Deliberately slow down plot progression in favor of everyday moments and mundane interactions. Focus on character relationships, personal growth, and daily activities rather than dramatic events. Allow extended periods where characters simply live their lives, with minimal story progression. Prioritize small, meaningful character moments and ordinary situations. Major plot developments should be rare and spaced far apart, with emphasis on how characters experience their everyday world.
 
-
-
 DYNAMIC WORLD CREATION:
-
 You are expected to actively create new elements to build a rich, evolving world:
-
 - Create new NPCs with distinct personalities, motivations, relationships, and quirks
-
 - Develop new locations as the story progresses, each with unique atmosphere and purpose
-
 - Introduce new items, objects, and artifacts that have significance to the world or story
-
 - Create new quests, challenges, and opportunities as they emerge naturally from the narrative
-
 - Add cultural elements, local customs, festivals, or historical events relevant to the setting
-
 - All new elements should be consistent with the established world and appropriate for the plot pacing
 
-
-
 When creating new elements:
-
 - Introduce them organically through the narrative, never forcing them into the story
-
 - Provide vivid, specific descriptions that make them memorable and distinct
-
 - Establish clear connections to existing elements and the overall world
-
 - Give names to important new elements so they can be referenced consistently
-
 - Use sensory details to make locations feel real and immersive
-
 - Give NPCs distinct speech patterns, mannerisms, or physical characteristics
-
 - Remember all details you create and reference them consistently in future interactions
 
-
-
 When describing environments:
-
 - Focus on one distinctive sensory detail rather than cataloging the entire scene
-
 - Mention only elements the player can directly interact with
-
 - Use fresh, unexpected descriptors
 
-
-
 When portraying NPCs:
-
 - Let their actions reveal their character instead of explaining their traits explicitly
-
 - Vary speech patterns and vocabulary between different characters, while adhering to their personality
-
 - Use minimal dialogue tags
-
 - Keep characters consistent with their personality and motivations
-
-
 
 The adventure takes place in a {setting_description}. The tone is {tone}.
 
-
-
 Current game state:
-
 {context}
 
-
-
 Player: {question}
-
 """
 
 
@@ -235,170 +192,128 @@ New information to add to memory:
 """
 
 
+class EnhancedLLM:
+    """Enhanced LLM class that can work with both Ollama API and local GGUF files"""
 
-
-
-class OllamaLLM:
-
-    """Direct implementation for Ollama models without LangChain dependencies"""
-
-
-
-    def __init__(self, model="mistral-small", temperature=0.7, top_p=0.9, top_k=40, max_tokens=None):
-
+    def __init__(self, model="mistral-small", temperature=0.7, top_p=0.9, top_k=40, max_tokens=None,
+                 model_type="ollama", model_path=None):
         self.model_name = model
-
         self.temperature = temperature
-
         self.top_p = top_p
-
         self.top_k = top_k
-
         self.max_tokens = max_tokens
-
+        self.model_type = model_type  # "ollama" or "local"
+        self.model_path = model_path
         self.api_base = "http://localhost:11434/api"
+        self.local_model = None
 
-
+        # If using a local model, initialize it
+        if self.model_type == "local" and self.model_path and LLAMA_CPP_AVAILABLE:
+            try:
+                self.local_model = Llama(
+                    model_path=self.model_path,
+                    n_ctx=2048,  # Context size
+                    n_threads=os.cpu_count(),  # Use all CPU cores
+                )
+            except Exception as e:
+                print(f"Error loading local model: {e}")
+                self.local_model = None
 
     def invoke(self, prompt):
-
         """Invoke the model with the given prompt"""
-
-        # Handle different input types to extract the text content
-
+        # Extract text content from various input types
         if isinstance(prompt, dict):
-
             if "question" in prompt:
-
                 input_text = prompt["question"]
-
             elif "content" in prompt:
-
                 input_text = prompt["content"]
-
             else:
-
                 # Try to extract from other common keys
-
                 for key in ["text", "prompt", "input"]:
-
                     if key in prompt:
-
                         input_text = prompt[key]
-
                         break
-
                 else:
-
                     # If no known keys found, serialize the whole dict
-
                     input_text = json.dumps(prompt)
-
         elif isinstance(prompt, str):
-
             input_text = prompt
-
         else:
-
             # Try to convert other types to string
-
             input_text = str(prompt)
 
+        # Use the appropriate model based on type
+        if self.model_type == "ollama":
+            # Use Ollama API
+            return self._invoke_ollama(input_text)
+        elif self.model_type == "local" and self.local_model:
+            # Use local model
+            return self._invoke_local(input_text)
+        else:
+            return "Error: Invalid model configuration"
 
-
+    def _invoke_ollama(self, input_text):
+        """Invoke using Ollama API"""
         # Build the request payload
-
         payload = {
-
             "model": self.model_name,
-
             "prompt": input_text,
-
             "stream": False,
-
             "options": {
-
                 "temperature": self.temperature,
-
                 "top_p": self.top_p,
-
                 "top_k": self.top_k,
-
             }
-
         }
 
-
-
         if self.max_tokens:
-
             payload["options"]["num_predict"] = self.max_tokens
 
-
-
         # Make the API request
-
         try:
-
             response = requests.post(f"{self.api_base}/generate", json=payload)
-
             response.raise_for_status()
 
-
-
             # Parse the response
-
             result = response.json()
-
             if "response" in result:
-
                 return result["response"]
-
             else:
-
                 return f"Error: Unexpected response format: {result}"
 
-
-
-        except json.JSONDecodeError as e:
-
-            print(f"JSON decode error: {e}")
-
-            # Try to salvage what we can from the response
-
-            try:
-
-                text = response.text
-
-                # For streaming responses with multiple JSON objects
-
-                if '\n' in text:
-
-                    # Take just the first complete JSON object
-
-                    first_json = text.split('\n')[0]
-
-                    obj = json.loads(first_json)
-
-                    if "response" in obj:
-
-                        return obj["response"]
-
-                return f"Error parsing JSON response: {e}. Raw response: {text[:100]}..."
-
-            except Exception as inner_e:
-
-                return f"Error processing response: {inner_e}"
-
         except Exception as e:
-
             print(f"Error calling Ollama API: {e}")
-
             return f"Error: {str(e)}"
 
+    def _invoke_local(self, input_text):
+        """Invoke using local GGUF model"""
+        if not self.local_model:
+            return "Error: Local model not initialized"
+
+        try:
+            # Run inference with the local model
+            output = self.local_model(
+                input_text,
+                max_tokens=self.max_tokens or 2048,
+                temperature=self.temperature,
+                top_p=self.top_p,
+                top_k=self.top_k or 40,
+                echo=False,
+            )
+
+            # Extract the generated text
+            if isinstance(output, dict) and "choices" in output and len(output["choices"]) > 0:
+                return output["choices"][0]["text"]
+            else:
+                return str(output)
+
+        except Exception as e:
+            print(f"Error running local model inference: {e}")
+            return f"Error with local model: {str(e)}"
+
     def stream(self, prompt):
-        """Stream the model's response as individual tokens with robust error handling"""
-        # Similar input handling as invoke
+        """Stream the model's response token by token"""
+        # Extract text content
         if isinstance(prompt, dict):
             if "question" in prompt:
                 input_text = prompt["question"]
@@ -416,6 +331,16 @@ class OllamaLLM:
         else:
             input_text = str(prompt)
 
+        # Stream using the appropriate model
+        if self.model_type == "ollama":
+            yield from self._stream_ollama(input_text)
+        elif self.model_type == "local" and self.local_model:
+            yield from self._stream_local(input_text)
+        else:
+            yield "Error: Invalid model configuration"
+
+    def _stream_ollama(self, input_text):
+        """Stream using Ollama API"""
         payload = {
             "model": self.model_name,
             "prompt": input_text,
@@ -450,8 +375,7 @@ class OllamaLLM:
                     data = json.loads(line.decode('utf-8'))
                     if "response" in data:
                         yield data["response"]
-                except json.JSONDecodeError as e:
-                    print(f"JSON error in stream: {e}")
+                except json.JSONDecodeError:
                     # Try to extract content even if JSON is malformed
                     line_str = line.decode('utf-8')
                     if '"response": "' in line_str:
@@ -463,41 +387,246 @@ class OllamaLLM:
                                 yield line_str[start:end]
                         except:
                             # If extraction fails, just yield what we have
-                            yield f"[Error parsing stream response]"
+                            yield "[Error parsing stream response]"
 
         except Exception as e:
             print(f"Error streaming from Ollama API: {e}")
             yield f"Error generating response: {str(e)}"
 
+    def _stream_local(self, input_text):
+        """Stream using local GGUF model"""
+        if not self.local_model:
+            yield "Error: Local model not initialized"
+            return
 
+        try:
+            # Use the streaming interface if available
+            for chunk in self.local_model(
+                    input_text,
+                    max_tokens=self.max_tokens or 2048,
+                    temperature=self.temperature,
+                    top_p=self.top_p,
+                    top_k=self.top_k or 40,
+                    echo=False,
+                    stream=True,
+            ):
+                if isinstance(chunk, dict) and "choices" in chunk and len(chunk["choices"]) > 0:
+                    token = chunk["choices"][0]["text"]
+                    if token:
+                        yield token
+                else:
+                    yield str(chunk)
+
+        except Exception as e:
+            print(f"Error streaming from local model: {e}")
+            yield f"Error generating response: {str(e)}"
 
     def update_settings(self, temperature=None, top_p=None, top_k=None, max_tokens=None):
-
         """Update the model settings"""
-
         if temperature is not None:
-
             self.temperature = temperature
-
         if top_p is not None:
-
             self.top_p = top_p
-
         if top_k is not None:
-
             self.top_k = top_k
-
         if max_tokens is not None:
-
             self.max_tokens = max_tokens
 
-
-
-    def change_model(self, model_name):
-
+    def change_model(self, model_name_or_path, model_type="ollama"):
         """Change the model"""
+        self.model_type = model_type
 
-        self.model_name = model_name
+        if model_type == "ollama":
+            self.model_name = model_name_or_path
+            self.model_path = None
+            self.local_model = None
+        elif model_type == "local":
+            self.model_name = os.path.basename(model_name_or_path)
+            self.model_path = model_name_or_path
+
+            # Try to initialize the local model
+            if LLAMA_CPP_AVAILABLE:
+                try:
+                    self.local_model = Llama(
+                        model_path=self.model_path,
+                        n_ctx=2048,
+                        n_threads=os.cpu_count(),
+                    )
+                except Exception as e:
+                    print(f"Error loading local model: {e}")
+                    self.local_model = None
+            else:
+                print("llama-cpp-python is not available")
+                self.local_model = None
+
+
+class ModelSelectionWidget(QWidget):
+    """Widget for selecting between Ollama models and local GGUF files"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.settings = QSettings("LaceAIdventure", "GameApp")
+        self.recent_local_models = self.settings.value("recent_local_models", [])
+        if not isinstance(self.recent_local_models, list):
+            self.recent_local_models = []
+        self.setup_ui()
+
+    def setup_ui(self):
+        """Set up the UI components"""
+        layout = QVBoxLayout(self)
+
+        # Create tabs for model selection
+        self.model_tabs = QTabWidget()
+
+        # Ollama models tab
+        ollama_tab = QWidget()
+        ollama_layout = QVBoxLayout(ollama_tab)
+
+        ollama_label = QLabel("Select an Ollama model:")
+        ollama_layout.addWidget(ollama_label)
+
+        self.ollama_combo = QComboBox()
+        available_models = self.get_available_ollama_models()
+        self.ollama_combo.addItems(available_models)
+        ollama_layout.addWidget(self.ollama_combo)
+
+        # Refresh button for Ollama models
+        refresh_button = QPushButton("Refresh Models")
+        refresh_button.clicked.connect(self.refresh_ollama_models)
+        ollama_layout.addWidget(refresh_button)
+
+        ollama_layout.addStretch()
+
+        # Local models tab
+        local_tab = QWidget()
+        local_layout = QVBoxLayout(local_tab)
+
+        if not LLAMA_CPP_AVAILABLE:
+            warning_label = QLabel("llama-cpp-python is not installed. Local models will not be available.")
+            warning_label.setStyleSheet("color: red;")
+            local_layout.addWidget(warning_label)
+
+            install_button = QPushButton("Install llama-cpp-python")
+            install_button.clicked.connect(self.install_llama_cpp)
+            local_layout.addWidget(install_button)
+        else:
+            # Recent models
+            recent_label = QLabel("Recent Models:")
+            local_layout.addWidget(recent_label)
+
+            self.recent_models_list = QListWidget()
+            self.recent_models_list.addItems(self.recent_local_models)
+            self.recent_models_list.setMaximumHeight(150)
+            local_layout.addWidget(self.recent_models_list)
+
+            # Browse button
+            browse_layout = QHBoxLayout()
+            self.model_path_edit = QLineEdit()
+            self.model_path_edit.setPlaceholderText("Select a .gguf file...")
+            browse_button = QPushButton("Browse...")
+            browse_button.clicked.connect(self.browse_for_model)
+
+            browse_layout.addWidget(self.model_path_edit)
+            browse_layout.addWidget(browse_button)
+            local_layout.addLayout(browse_layout)
+
+        local_layout.addStretch()
+
+        # Add tabs
+        self.model_tabs.addTab(ollama_tab, "Ollama Models")
+        self.model_tabs.addTab(local_tab, "Local Models")
+
+        layout.addWidget(self.model_tabs)
+
+    def refresh_ollama_models(self):
+        """Refresh the list of available Ollama models"""
+        self.ollama_combo.clear()
+        available_models = self.get_available_ollama_models()
+        self.ollama_combo.addItems(available_models)
+
+    def browse_for_model(self):
+        """Open a file dialog to browse for a local model file"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select Model File", "", "GGUF Files (*.gguf)"
+        )
+
+        if file_path:
+            self.model_path_edit.setText(file_path)
+
+            # Add to recent models if not already there
+            if file_path not in self.recent_local_models:
+                self.recent_local_models.insert(0, file_path)
+                # Keep only the 5 most recent models
+                self.recent_local_models = self.recent_local_models[:5]
+                self.recent_models_list.clear()
+                self.recent_models_list.addItems(self.recent_local_models)
+
+                # Save to settings
+                self.settings.setValue("recent_local_models", self.recent_local_models)
+
+    def install_llama_cpp(self):
+        """Attempt to install llama-cpp-python"""
+        result = QMessageBox.information(
+            self,
+            "Install llama-cpp-python",
+            "This will attempt to install llama-cpp-python via pip. The application will need to restart after installation. Proceed?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if result == QMessageBox.StandardButton.Yes:
+            # TODO: Implement installation logic
+            # This is complex and would depend on the environment
+            QMessageBox.warning(
+                self,
+                "Installation",
+                "Please install llama-cpp-python manually with pip:\n\npip install llama-cpp-python\n\nThen restart the application."
+            )
+
+    def get_selected_model(self):
+        """Get the currently selected model information"""
+        current_tab = self.model_tabs.currentIndex()
+
+        if current_tab == 0:
+            # Ollama model tab
+            return {
+                "type": "ollama",
+                "name": self.ollama_combo.currentText(),
+                "path": None
+            }
+        else:
+            # Local model tab
+            if not LLAMA_CPP_AVAILABLE:
+                return {
+                    "type": "ollama",
+                    "name": "mistral-small",  # Default fallback
+                    "path": None
+                }
+
+            # Check if a model file is selected in the text field
+            model_path = self.model_path_edit.text()
+            if model_path and os.path.exists(model_path):
+                return {
+                    "type": "local",
+                    "name": os.path.basename(model_path),
+                    "path": model_path
+                }
+
+            # Check if a model is selected in the recent list
+            selected_items = self.recent_models_list.selectedItems()
+            if selected_items and os.path.exists(selected_items[0].text()):
+                model_path = selected_items[0].text()
+                return {
+                    "type": "local",
+                    "name": os.path.basename(model_path),
+                    "path": model_path
+                }
+
+            # Fallback
+            return {
+                "type": "ollama",
+                "name": "mistral-small",
+                "path": None
+            }
 
 
 

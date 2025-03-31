@@ -62,8 +62,6 @@ ACCENT_COLOR = "#8046CC"  # Darker accent color for buttons
 
 
 
-
-
 class StreamingTextDisplay(QTextEdit):
 
     """Widget for displaying streaming text with typewriter effect"""
@@ -1213,6 +1211,81 @@ class SummaryWorker(QObject):
         finally:
 
             self.finished.emit()
+
+
+class GameStateUpdateWorker(QObject):
+    """Worker for updating game state in a separate thread"""
+
+    update_complete = pyqtSignal()
+
+    def __init__(self, game_state, story_name, player_input, dm_response, model):
+        super().__init__()
+        self.game_state = game_state
+        self.story_name = story_name
+        self.player_input = player_input
+        self.dm_response = dm_response
+        self.model = model
+
+    def process(self):
+        """Process the game state update in background"""
+        try:
+            # Add to conversation history
+            current_session = self.game_state['game_info']['session_count']
+
+            # Find current session or create new one
+            session_found = False
+            for session in self.game_state['conversation_history']:
+                if session['session'] == current_session:
+                    session['exchanges'].append({"speaker": "Player", "text": self.player_input})
+                    session['exchanges'].append({"speaker": "DM", "text": self.dm_response})
+                    session_found = True
+                    break
+
+            if not session_found:
+                self.game_state['conversation_history'].append({
+                    "session": current_session,
+                    "exchanges": [
+                        {"speaker": "Player", "text": self.player_input},
+                        {"speaker": "DM", "text": self.dm_response}
+                    ]
+                })
+
+            # Get plot pacing preference
+            plot_pace = self.game_state['game_info'].get('plot_pace', 'Balanced')
+
+            # Update memory
+            memory_updates, important_updates = rpg_engine.extract_memory_updates(
+                self.player_input,
+                self.dm_response,
+                self.game_state['narrative_memory'],
+                self.model,
+                plot_pace
+            )
+
+            # Add new memory items without duplicates
+            for category, items in memory_updates.items():
+                if category not in self.game_state['narrative_memory']:
+                    self.game_state['narrative_memory'][category] = []
+
+                for item in items:
+                    if item not in self.game_state['narrative_memory'][category]:
+                        self.game_state['narrative_memory'][category].append(item)
+
+            # Dynamic element creation from the rpg_engine.py functions
+            self.game_state = rpg_engine.update_dynamic_elements(self.game_state, memory_updates)
+
+            # Store important updates (but don't display them)
+            if important_updates:
+                self.game_state['important_updates'] = important_updates
+
+            # Save the game state
+            rpg_engine.save_game_state(self.game_state, self.story_name)
+
+        except Exception as e:
+            print(f"Error updating game state: {e}")
+
+        # Signal that update is complete
+        self.update_complete.emit()
 
 
 
@@ -4276,90 +4349,39 @@ class LaceAIdventureGUI(QMainWindow):
 
         self.generation_thread.start()
 
-
-
     def finalize_response(self, player_input, response):
-
         """Finalize the response from the model"""
-
         # Add a newline
-
         self.text_display.stream_text("\n", "dm_text")
 
-
-
-        # Update the game state
-
-        self.update_game_state(player_input, response)
-
-
-
-        # Enable the input field
-
-        self.input_field.setEnabled(True)
-
-        self.send_button.setEnabled(True)
-
-        self.input_field.setFocus()
-
-    def update_game_state(self, player_input, dm_response):
-        """Update the game state based on player input and DM response"""
-        # Add to conversation history
-        current_session = self.game_state['game_info']['session_count']
-
-        # Find current session or create new one
-        session_found = False
-        for session in self.game_state['conversation_history']:
-            if session['session'] == current_session:
-                session['exchanges'].append({"speaker": "Player", "text": player_input})
-                session['exchanges'].append({"speaker": "DM", "text": dm_response})
-                session_found = True
-                break
-
-        if not session_found:
-            self.game_state['conversation_history'].append({
-                "session": current_session,
-                "exchanges": [
-                    {"speaker": "Player", "text": player_input},
-                    {"speaker": "DM", "text": dm_response}
-                ]
-            })
-
-        # Get plot pacing preference
-        plot_pace = self.game_state['game_info'].get('plot_pace', 'Balanced')
-
-        # Update memory
-        memory_updates, important_updates = rpg_engine.extract_memory_updates(
+        # Update the game state in a background thread
+        self.update_thread = QThread()
+        self.update_worker = GameStateUpdateWorker(
+            self.game_state,
+            self.story_name,
             player_input,
-            dm_response,
-            self.game_state['narrative_memory'],
-            self.model,
-            plot_pace
+            response,
+            self.model
         )
 
-        # Add new memory items without duplicates
-        for category, items in memory_updates.items():
-            if category not in self.game_state['narrative_memory']:
-                self.game_state['narrative_memory'][category] = []
+        self.update_worker.moveToThread(self.update_thread)
+        self.update_thread.started.connect(self.update_worker.process)
+        self.update_worker.update_complete.connect(self.update_thread.quit)
+        self.update_worker.update_complete.connect(self.update_worker.deleteLater)
+        self.update_thread.finished.connect(self.update_thread.deleteLater)
+        self.update_thread.finished.connect(self.after_update_complete)
 
-            for item in items:
-                if item not in self.game_state['narrative_memory'][category]:
-                    self.game_state['narrative_memory'][category].append(item)
+        # Start the thread
+        self.update_thread.start()
 
-        # Dynamic element creation from the rpg_engine.py functions
-        self.game_state = rpg_engine.update_dynamic_elements(self.game_state, memory_updates)
+        # Re-enable the input field immediately
+        self.input_field.setEnabled(True)
+        self.send_button.setEnabled(True)
+        self.input_field.setFocus()
 
-        # Store important updates (but don't display them)
-        if important_updates:
-            self.game_state['important_updates'] = important_updates
-
-        # Save the game state
-        rpg_engine.save_game_state(self.game_state, self.story_name)
-
-        # Update the game status panel
+    def after_update_complete(self):
+        """Called after the game state update is complete"""
         self.update_game_status()
-
-
 
     def update_game_status(self):
 
