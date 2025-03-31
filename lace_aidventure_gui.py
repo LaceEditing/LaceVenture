@@ -1,5 +1,5 @@
 ﻿import sys
-
+import random
 import os
 
 import re
@@ -203,80 +203,159 @@ class StreamingTextDisplay(QTextEdit):
         self.ensureCursorVisible()
 
 
-
-
-
 class ModelGenerationThread(QThread):
-
     """Thread for generating text from the model to prevent UI freezing"""
 
-
-
     # Signal emitted when new text is generated
-
     text_generated = pyqtSignal(str)
-
     generation_complete = pyqtSignal(str)
 
-
-
     def __init__(self, model, prompt_vars):
-
         super().__init__()
-
         self.model = model
-
         self.prompt_vars = prompt_vars
-
         self.full_response = ""
+        self.repetition_detector = RepetitionDetector(threshold=0.6, memory_size=5)
+
+        # Get last response from conversation history if available
+        self.last_response = None
+        if 'context' in prompt_vars:
+            # Try to extract the last DM response from the context
+            context_lines = prompt_vars['context'].split('\n')
+            for line in reversed(context_lines):
+                if line.startswith("DM:"):
+                    self.last_response = line[3:].strip()
+                    break
+
+    def extract_key_phrases(self, text, num_phrases=3):
+        """Extract a few distinctive phrases from the text to highlight what to avoid"""
+        # Simple extraction of 2-3 word phrases
+        words = text.split()
+        if len(words) < 4:
+            return text
+
+        # Get some random 2-3 word phrases
+        phrases = []
+        for _ in range(min(num_phrases, len(words) // 3)):
+            start = random.randint(0, len(words) - 3)
+            length = random.randint(2, 3)
+            phrase = " ".join(words[start:start + length])
+            phrases.append(phrase)
+
+        return ", ".join(phrases)
+
+    def enhance_prompt_for_variety(self, base_prompt, previous_response=None):
+        """Add anti-repetition instructions to the prompt"""
+        variety_instructions = """
+        ADDITIONAL ANTI-REPETITION REQUIREMENTS:
+        - AVOID ALL REPETITION: Do not reuse words, phrases, or sentence structures from your previous responses
+        - VARIETY IS ESSENTIAL: Use completely different descriptive language than you've used before
+        - FRESH PERSPECTIVES: Describe scenes and characters from new angles and perspectives
+        - DIVERSE VOCABULARY: Consciously use vocabulary that hasn't appeared in recent exchanges
+        - NEW SENSORY DETAILS: Focus on different senses (sound, smell, touch) than in previous descriptions
+        - ALTERNATIVE NARRATIVE STYLES: Vary between direct description, metaphorical language, and dialogue
+        - DOUBLE CHECK BEFORE OUTPUT: Before pasting your output, please ensure that the repetition has been resolved
+        """
+
+        if previous_response:
+            key_phrases = self.extract_key_phrases(previous_response)
+            if key_phrases:
+                variety_instructions += f"""
+                IMPORTANT: Your last response used phrases like "{key_phrases}". 
+                DO NOT use these words or similar phrasings again. Find completely new ways to express yourself.
+                """
+
+        # Insert these instructions in an appropriate place in the base prompt
+        # For example, after the "CRITICAL OUTPUT REQUIREMENTS" section
+        insertion_point = "CRITICAL OUTPUT REQUIREMENTS:"
+        parts = base_prompt.split(insertion_point)
+
+        if len(parts) == 2:
+            enhanced_prompt = parts[0] + insertion_point + parts[1].split("\n", 1)[
+                0] + "\n" + variety_instructions + "\n" + parts[1].split("\n", 1)[1]
+            return enhanced_prompt
+
+        # Fallback: just append the instructions
+        return base_prompt + "\n" + variety_instructions
+
+    def adjust_params_for_variety(self, repetition_score, base_temp=0.7, max_temp=1.2):
+        """Calculate adjusted temperature based on repetition score"""
+        # Scale between base_temp and max_temp based on repetition score
+        if repetition_score > 0.5:
+            # The more repetitive, the higher the temperature
+            adjusted_temp = min(base_temp + (repetition_score - 0.5) * 2 * (max_temp - base_temp), max_temp)
+            return adjusted_temp
+        return base_temp
 
     def run(self):
-        """Run the model generation directly without using LangChain pipelines"""
+        """Run the model generation with anti-repetition mechanisms"""
         try:
-            # Format the prompt directly instead of using LangChain
+            # Format the basic prompt
             formatted_prompt = f"""
-    You are an experienced Dungeon Master for a {self.prompt_vars['genre']} RPG set in {self.prompt_vars['world_name']}. Your role is to:
+You are an experienced Dungeon Master for a {self.prompt_vars['genre']} RPG set in {self.prompt_vars['world_name']}. Your role is to:
 
-    1. Create an immersive world with rich descriptions that engage all senses
-    2. Portray NPCs with consistent personalities, goals, and knowledge
-    3. Present appropriate challenges and opportunities for character development
-    4. Maintain narrative continuity and remember details from previous sessions
-    5. Apply game rules fairly while prioritizing storytelling and player enjoyment
-    6. Adapt the story based on player choices to create a truly interactive experience
+1. Create an immersive world with rich descriptions that engage all senses
+2. Portray NPCs with consistent personalities, goals, and knowledge
+3. Present appropriate challenges and opportunities for character development
+4. Maintain narrative continuity and remember details from previous sessions
+5. Apply game rules fairly while prioritizing storytelling and player enjoyment
+6. Adapt the story based on player choices to create a truly interactive experience
+7. Always speak in character or as a narrator, never interject from the role of an AI Language Model or with your own opinions
 
-    CRITICAL OUTPUT REQUIREMENTS:
-    - BREVITY: Keep responses extremely short, 1 to 3 sentences maximum
-    - VARIETY: Never use similar sentence structures back-to-back
-    - PRECISION: Use specific, evocative details rather than general descriptions, but avoid being too verbose
-    - UNIQUENESS: Avoid reusing phrases, descriptions, or scene transitions
-    - FREEDOM: Only give the player specific choices when absolutely necessary, otherwise always simply ask "What will you do?" to end your output
-    - GAMEPLAY: The player character should never speak on their own, unless the user tells them to in their responses. You will never generate dialogue from their perspective
-    - ROLE CONSISTENCY: Always respond in role as the Dungeon Master or as an NPC character when speaking. Never break character to respond as an AI model. Never mention AI models, prompts, or language processing. Stay completely immersed in the fantasy role.
-    - FORBIDDEN PHRASES: Never use phrases like "I can't create content that is...", "As an AI, I...", "I'm sorry, but I cannot...", or any similar statements that break immersion.
-    - NARRATIVE VOICE: When describing scenes, use the voice of a storyteller. When NPCs speak, use their established personalities and dialogue patterns.
-    - FINISHING OUTPUT: Always end your output, no matter what it is, with "What will you do?"
+CRITICAL OUTPUT REQUIREMENTS:
+- BREVITY: Keep responses extremely short, 1 to 3 sentences maximum
+- VARIETY: Never use similar sentence structures back-to-back
+- PRECISION: Use specific, evocative details rather than general descriptions, but avoid being too verbose
+- UNIQUENESS: Avoid reusing phrases, descriptions, or scene transitions
+- FREEDOM: Only give the player specific choices when absolutely necessary, otherwise always simply ask "What will you do?" to end your output
+- GAMEPLAY: The player character should never speak on their own, unless the user tells them to in their responses. You will never generate dialogue from their perspective
+- ROLE CONSISTENCY: Always respond in role as the Dungeon Master or as an NPC character when speaking. Never break character to respond as an AI model. Never mention AI models, prompts, or language processing. Stay completely immersed in the fantasy role.
+- FORBIDDEN PHRASES: Never use phrases like "I can't create content that is...", "As an AI, I...", "I'm sorry, but I cannot...", or any similar statements that break immersion.
+- NARRATIVE VOICE: When describing scenes, use the voice of a storyteller. When NPCs speak, use their established personalities and dialogue patterns.
+- REPETITION PREVENTION: Don't output anything until you've ensured that the entirety of your output is concise and lacking repetition
+- FINISHING OUTPUT: Always end your output, no matter what it is, with "What will you do?"
 
-    CONTENT RATING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['rating']}" RATING:
-    - E rating: Keep content family-friendly. Avoid graphic violence, frightening scenarios, sexual content, and strong language.
-    - T rating: Moderate content is acceptable. Some violence, dark themes, mild language, and light romantic implications allowed, but nothing explicit or graphic.
-    - M rating: Mature content is permitted. You may include graphic violence, sexual themes, intense scenarios, and strong language as appropriate to the story.
+CONTENT RATING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['rating']}" RATING:
+- E rating: Keep content family-friendly. Avoid graphic violence, frightening scenarios, sexual content, and strong language.
+- T rating: Moderate content is acceptable. Some violence, dark themes, mild language, and light romantic implications allowed, but nothing explicit or graphic.
+- M rating: Mature content is permitted. You may include graphic violence, sexual themes, intense scenarios, and strong language as appropriate to the story.
 
-    PLOT PACING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['plot_pace']}" PACING:
-    - Fast-paced: Maintain steady forward momentum with regular plot developments and challenges. Focus primarily on action, goals, and advancing the main storyline. Character development should happen through significant events rather than quiet moments. Keep the story moving forward with new developments in most scenes.
-    - Balanced: Create a rhythm alternating between plot advancement and character moments. Allow time for reflection and relationship development between significant story beats. Mix everyday interactions with moderate plot advancement. Ensure characters have time to process events before introducing new major developments.
-    - Slice-of-life: Deliberately slow down plot progression in favor of everyday moments and mundane interactions. Focus on character relationships, personal growth, and daily activities rather than dramatic events. Allow extended periods where characters simply live their lives, with minimal story progression. Prioritize small, meaningful character moments and ordinary situations. Major plot developments should be rare and spaced far apart, with emphasis on how characters experience their everyday world.
+PLOT PACING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['plot_pace']}" PACING:
+- Fast-paced: Maintain steady forward momentum with regular plot developments and challenges. Focus primarily on action, goals, and advancing the main storyline. Character development should happen through significant events rather than quiet moments. Keep the story moving forward with new developments in most scenes.
+- Balanced: Create a rhythm alternating between plot advancement and character moments. Allow time for reflection and relationship development between significant story beats. Mix everyday interactions with moderate plot advancement. Ensure characters have time to process events before introducing new major developments.
+- Slice-of-life: Deliberately slow down plot progression in favor of everyday moments and mundane interactions. Focus on character relationships, personal growth, and daily activities rather than dramatic events. Allow extended periods where characters simply live their lives, with minimal story progression. Prioritize small, meaningful character moments and ordinary situations. Major plot developments should be rare and spaced far apart, with emphasis on how characters experience their everyday world.
 
-    DYNAMIC WORLD CREATION:
-    You are expected to actively create new elements to build a rich, evolving world.
+DYNAMIC WORLD CREATION:
+You are expected to actively create new elements to build a rich, evolving world.
 
-    The adventure takes place in a {self.prompt_vars['setting_description']}. The tone is {self.prompt_vars['tone']}.
+The adventure takes place in a {self.prompt_vars['setting_description']}. The tone is {self.prompt_vars['tone']}.
 
-    Current game state:
-    {self.prompt_vars['context']}
+Current game state:
+{self.prompt_vars['context']}
 
-    Player: {self.prompt_vars['question']}
-    """
-            # Try streaming first
+Player: {self.prompt_vars['question']}
+"""
+            # Enhance the prompt with anti-repetition instructions
+            if self.last_response:
+                formatted_prompt = self.enhance_prompt_for_variety(formatted_prompt, self.last_response)
+            else:
+                formatted_prompt = self.enhance_prompt_for_variety(formatted_prompt)
+
+            # Check repetition level of last few responses
+            repetition_score = 0
+            if self.last_response:
+                repetition_score = self.repetition_detector.get_repetition_score(self.last_response)
+
+            # Adjust temperature based on repetition
+            original_temp = self.model.temperature
+            if repetition_score > 0.5:
+                adjusted_temp = self.adjust_params_for_variety(repetition_score,
+                                                               base_temp=original_temp,
+                                                               max_temp=min(original_temp + 0.5, 1.2))
+                print(f"Increasing temperature from {original_temp} to {adjusted_temp} due to repetition")
+                self.model.update_settings(temperature=adjusted_temp)
+
+            # Generate the response
             try:
                 # Stream the response token by token
                 for chunk in self.model.stream(formatted_prompt):
@@ -288,6 +367,13 @@ class ModelGenerationThread(QThread):
                 self.full_response = self.model.invoke(formatted_prompt)
                 self.text_generated.emit(self.full_response)
 
+            # Restore original temperature
+            if repetition_score > 0.5:
+                self.model.update_settings(temperature=original_temp)
+
+            # Add this response to the repetition detector
+            self.repetition_detector.add_response(self.full_response)
+
         except Exception as e:
             error_msg = f"\nError generating response: {str(e)}"
             print(error_msg)
@@ -295,9 +381,6 @@ class ModelGenerationThread(QThread):
 
         # Signal that generation is complete
         self.generation_complete.emit(self.full_response)
-
-
-
 
 
 class StoryCreationWizard(QWidget):
@@ -1219,7 +1302,145 @@ class SummaryWorker(QObject):
             self.finished.emit()
 
 
+class GameStateUpdateWorker(QObject):
+    """Worker for updating the game state in a separate thread"""
 
+    update_complete = pyqtSignal(dict, list)  # Emits updated game state and important updates
+
+    def __init__(self, game_state, player_input, dm_response, model):
+        super().__init__()
+        self.game_state = game_state
+        self.player_input = player_input
+        self.dm_response = dm_response
+        self.model = model
+
+    def update_game_state(self):
+        """Update the game state in a background thread"""
+        try:
+            # Add to conversation history
+            current_session = self.game_state['game_info']['session_count']
+
+            # Find current session or create new one
+            session_found = False
+            for session in self.game_state['conversation_history']:
+                if session['session'] == current_session:
+                    session['exchanges'].append({"speaker": "Player", "text": self.player_input})
+                    session['exchanges'].append({"speaker": "DM", "text": self.dm_response})
+                    session_found = True
+                    break
+
+            if not session_found:
+                self.game_state['conversation_history'].append({
+                    "session": current_session,
+                    "exchanges": [
+                        {"speaker": "Player", "text": self.player_input},
+                        {"speaker": "DM", "text": self.dm_response}
+                    ]
+                })
+
+            # Get plot pacing preference
+            plot_pace = self.game_state['game_info'].get('plot_pace', 'Balanced')
+
+            # Update memory
+            memory_updates, important_updates = rpg_engine.extract_memory_updates(
+                self.player_input,
+                self.dm_response,
+                self.game_state['narrative_memory'],
+                self.model,
+                plot_pace
+            )
+
+            # Add new memory items without duplicates
+            for category, items in memory_updates.items():
+                if category not in self.game_state['narrative_memory']:
+                    self.game_state['narrative_memory'][category] = []
+
+                for item in items:
+                    if item not in self.game_state['narrative_memory'][category]:
+                        self.game_state['narrative_memory'][category].append(item)
+
+            # Dynamic element creation from the rpg_engine.py functions
+            self.game_state = rpg_engine.update_dynamic_elements(self.game_state, memory_updates)
+
+            # Store important updates
+            if important_updates:
+                self.game_state['important_updates'] = important_updates
+
+            # Save the game state
+            story_name = self.game_state['game_info']['title']
+            rpg_engine.save_game_state(self.game_state, story_name)
+
+            # Emit the signal with the updated game state
+            self.update_complete.emit(self.game_state, important_updates)
+
+        except Exception as e:
+            print(f"Error updating game state: {e}")
+            # Still emit the signal with the original game state if there's an error
+            self.update_complete.emit(self.game_state, [])
+
+class RepetitionDetector:
+    """Class to detect and measure repetition in AI responses"""
+
+    def __init__(self, threshold=0.7, memory_size=5):
+        """
+        Initialize the repetition detector
+
+        Args:
+            threshold: Similarity threshold above which responses are considered repetitive
+            memory_size: Number of previous responses to keep in memory for comparison
+        """
+        self.recent_responses = []
+        self.threshold = threshold
+        self.memory_size = memory_size
+
+    def similarity_score(self, text1, text2):
+        """Calculate similarity between two texts using simple n-gram approach"""
+        # Convert to lowercase and tokenize
+        words1 = text1.lower().split()
+        words2 = text2.lower().split()
+
+        # Create n-grams (using trigrams)
+        def get_ngrams(words, n=3):
+            return [tuple(words[i:i + n]) for i in range(len(words) - n + 1)]
+
+        # Get n-grams, handle cases with fewer than n words
+        if len(words1) < 3 or len(words2) < 3:
+            # Fall back to single words for very short texts
+            ngrams1 = set(words1)
+            ngrams2 = set(words2)
+        else:
+            ngrams1 = set(get_ngrams(words1))
+            ngrams2 = set(get_ngrams(words2))
+
+        if not ngrams1 or not ngrams2:
+            return 0.0
+
+        # Calculate Jaccard similarity
+        intersection = len(ngrams1.intersection(ngrams2))
+        union = len(ngrams1.union(ngrams2))
+
+        return intersection / union if union > 0 else 0.0
+
+    def is_repetitive(self, new_response):
+        """Check if the new response is too similar to recent responses"""
+        for old_response in self.recent_responses:
+            if self.similarity_score(old_response, new_response) > self.threshold:
+                return True
+        return False
+
+    def add_response(self, response):
+        """Add a response to memory, maintaining the memory size"""
+        self.recent_responses.append(response)
+        if len(self.recent_responses) > self.memory_size:
+            self.recent_responses.pop(0)
+
+    def get_repetition_score(self, new_response):
+        """Get the highest similarity score with any recent response"""
+        if not self.recent_responses:
+            return 0.0
+
+        scores = [self.similarity_score(old, new_response) for old in self.recent_responses]
+        return max(scores) if scores else 0.0
 
 
 class LaceAIdventureGUI(QMainWindow):
@@ -4358,14 +4579,39 @@ class LaceAIdventureGUI(QMainWindow):
         # Add a newline
         self.text_display.stream_text("\n", "dm_text")
 
-        # Update the game state using the original response
-        # (we filter for display but keep the original for game state updates)
-        self.update_game_state(player_input, response)
+        # Create the thread and worker for background processing
+        self.update_thread = QThread()
+        self.update_worker = GameStateUpdateWorker(self.game_state, player_input, response, self.model)
+        self.update_worker.moveToThread(self.update_thread)
 
-        # Enable the input field
+        # Connect signals and slots
+        self.update_thread.started.connect(self.update_worker.update_game_state)
+        self.update_worker.update_complete.connect(self.handle_game_state_update)
+        self.update_worker.update_complete.connect(self.update_thread.quit)
+        self.update_thread.finished.connect(self.update_thread.deleteLater)
+        self.update_thread.finished.connect(self.update_worker.deleteLater)
+
+        # Enable the input field immediately so the user can type while processing happens
         self.input_field.setEnabled(True)
         self.send_button.setEnabled(True)
         self.input_field.setFocus()
+
+        # Start the thread
+        self.update_thread.start()
+
+    def handle_game_state_update(self, updated_game_state, important_updates):
+        """Handle the completion of game state updates"""
+        # Update the game state reference
+        self.game_state = updated_game_state
+
+        # Update the game status panel
+        self.update_game_status()
+
+        # Show any important updates if needed
+        # Uncomment if you want to notify the player of important events
+        # if important_updates:
+        #    for update in important_updates:
+        #        self.text_display.append_system_message(update)
 
     def update_game_state(self, player_input, dm_response):
         """Update the game state based on player input and DM response"""
