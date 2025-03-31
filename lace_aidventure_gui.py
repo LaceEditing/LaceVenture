@@ -251,6 +251,10 @@ class ModelGenerationThread(QThread):
     - UNIQUENESS: Avoid reusing phrases, descriptions, or scene transitions
     - FREEDOM: Only give the player specific choices when absolutely necessary, otherwise always simply ask "What will you do?" to end your output
     - GAMEPLAY: The player character should never speak on their own, unless the user tells them to in their responses. You will never generate dialogue from their perspective
+    - ROLE CONSISTENCY: Always respond in role as the Dungeon Master or as an NPC character when speaking. Never break character to respond as an AI model. Never mention AI models, prompts, or language processing. Stay completely immersed in the fantasy role.
+    - FORBIDDEN PHRASES: Never use phrases like "I can't create content that is...", "As an AI, I...", "I'm sorry, but I cannot...", or any similar statements that break immersion.
+    - NARRATIVE VOICE: When describing scenes, use the voice of a storyteller. When NPCs speak, use their established personalities and dialogue patterns.
+    - FINISHING OUTPUT: Always end your output, no matter what it is, with "What will you do?"
 
     CONTENT RATING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['rating']}" RATING:
     - E rating: Keep content family-friendly. Avoid graphic violence, frightening scenarios, sexual content, and strong language.
@@ -2158,6 +2162,8 @@ class LaceAIdventureGUI(QMainWindow):
 
 
 
+
+
         # Game info section
 
         game_info_group = QGroupBox("Game Info")
@@ -2335,6 +2341,62 @@ class LaceAIdventureGUI(QMainWindow):
 
 
         status_panel.setWidget(status_content)
+
+        locations_group = QGroupBox("Known Locations")
+        locations_group.setStyleSheet(group_box_style)
+        locations_layout = QVBoxLayout(locations_group)
+        locations_layout.setSpacing(5)
+
+        self.locations_list = QListWidget()
+        self.locations_list.setStyleSheet(f"""
+            QListWidget {{ 
+                background-color: white;
+                border: 1px solid {DM_NAME_COLOR};
+                border-radius: 5px;
+                padding: 5px;
+                color: #4A2D7D;
+            }}
+            QListWidget::item {{ padding: 5px; }}
+            QListWidget::item:selected {{ 
+                background-color: {DM_NAME_COLOR}; 
+                color: white; 
+            }}
+        """)
+        self.locations_list.itemClicked.connect(self.show_location_details)
+        locations_layout.addWidget(self.locations_list)
+
+        # Quests section
+        quests_group = QGroupBox("Active Quests")
+        quests_group.setStyleSheet(group_box_style)
+        quests_layout = QVBoxLayout(quests_group)
+        quests_layout.setSpacing(5)
+
+        self.quests_list = QListWidget()
+        self.quests_list.setStyleSheet(f"""
+            QListWidget {{ 
+                background-color: white;
+                border: 1px solid {DM_NAME_COLOR};
+                border-radius: 5px;
+                padding: 5px;
+                color: #4A2D7D;
+            }}
+            QListWidget::item {{ padding: 5px; }}
+            QListWidget::item:selected {{ 
+                background-color: {DM_NAME_COLOR}; 
+                color: white; 
+            }}
+        """)
+        self.quests_list.itemClicked.connect(self.show_quest_details)
+        quests_layout.addWidget(self.quests_list)
+
+        # Add all sections to the status layout
+        self.status_layout.addWidget(game_info_group)
+        self.status_layout.addWidget(character_info_group)
+        self.status_layout.addWidget(quest_info_group)
+        self.status_layout.addWidget(npcs_group)
+        self.status_layout.addWidget(locations_group)
+        self.status_layout.addWidget(quests_group)
+        self.status_layout.addStretch()
 
 
 
@@ -4276,30 +4338,33 @@ class LaceAIdventureGUI(QMainWindow):
 
         self.generation_thread.start()
 
-
-
     def finalize_response(self, player_input, response):
+        """Finalize the response from the model with immersion protection"""
+        # Check for out-of-character AI responses
+        ai_phrases = [
+            "as an ai", "i cannot", "i'm not able to", "i apologize",
+            "ai model", "language model", "i'm sorry", "i can't create",
+            "i cannot generate", "against my ethical guidelines",
+            "Error:", "DM:", "Player:"
+        ]
 
-        """Finalize the response from the model"""
+        # Filter out non-immersive responses
+        filtered_response = response
+        for phrase in ai_phrases:
+            if phrase in filtered_response.lower():
+                # Replace with an appropriate in-character response
+                filtered_response = filtered_response.replace(phrase, "")
 
         # Add a newline
-
         self.text_display.stream_text("\n", "dm_text")
 
-
-
-        # Update the game state
-
+        # Update the game state using the original response
+        # (we filter for display but keep the original for game state updates)
         self.update_game_state(player_input, response)
 
-
-
         # Enable the input field
-
         self.input_field.setEnabled(True)
-
         self.send_button.setEnabled(True)
-
         self.input_field.setFocus()
 
     def update_game_state(self, player_input, dm_response):
@@ -4359,15 +4424,55 @@ class LaceAIdventureGUI(QMainWindow):
         # Update the game status panel
         self.update_game_status()
 
-
-
     def update_game_status(self):
-
-        """Update the game status panel"""
-
+        """Update the game status panel with clickable elements"""
         if not self.game_state:
-
             return
+
+        # Update game info
+        self.game_title_label.setText(f"Title: {self.game_state['game_info']['title']}")
+        self.game_world_label.setText(f"World: {self.game_state['game_info']['world_name']}")
+
+        current_loc_id = self.game_state['game_info']['current_location']
+        self.game_location_label.setText(f"Location: {self.game_state['locations'][current_loc_id]['name']}")
+
+        # Update character info
+        pc_id = list(self.game_state['player_characters'].keys())[0]
+        pc = self.game_state['player_characters'][pc_id]
+
+        self.character_name_label.setText(f"Name: {pc['name']}")
+        self.character_class_label.setText(f"Class: {pc['class']}")
+        self.character_race_label.setText(f"Race: {pc['race']}")
+        self.character_health_label.setText(f"Health: {pc['health']}/{pc['max_health']}")
+
+        # Update quest info
+        current_quest_id = self.game_state['game_info']['current_quest']
+        if current_quest_id and current_quest_id in self.game_state['quests']:
+            quest = self.game_state['quests'][current_quest_id]
+            self.quest_name_label.setText(f"Name: {quest['name']}")
+            self.quest_desc_label.setText(f"Description: {quest['description']}")
+
+        # Update NPCs list
+        self.npcs_list.clear()
+        location = self.game_state['locations'][current_loc_id]
+        for npc_id in location['npcs_present']:
+            npc = self.game_state['npcs'][npc_id]
+            self.npcs_list.addItem(f"{npc['name']} - {npc['disposition']}")
+
+        # Update locations list
+        self.locations_list.clear()
+        for loc_id, loc in self.game_state['locations'].items():
+            if loc['visited']:
+                self.locations_list.addItem(loc['name'])
+
+        # Update quests list
+        self.quests_list.clear()
+        pc = self.game_state['player_characters'][pc_id]
+        for quest_id in pc['quests']:
+            if quest_id in self.game_state['quests']:
+                quest = self.game_state['quests'][quest_id]
+                status_icon = "✓" if quest['status'] == "completed" else "⚠" if quest['status'] == "active" else "?"
+                self.quests_list.addItem(f"{status_icon} {quest['name']}")
 
 
 
@@ -4428,6 +4533,686 @@ class LaceAIdventureGUI(QMainWindow):
             npc = self.game_state['npcs'][npc_id]
 
             self.npcs_list.addItem(f"{npc['name']} - {npc['disposition']}")
+
+    def show_npc_details(self, item):
+        """Show detailed information about the selected NPC"""
+        if not self.game_state:
+            return
+
+        # Extract NPC name from the list item text (removing any status)
+        npc_name = item.text().split(" - ")[0].strip()
+
+        # Find the NPC in the game state
+        npc_data = None
+        npc_id = None
+        for id, npc in self.game_state['npcs'].items():
+            if npc['name'] == npc_name:
+                npc_data = npc
+                npc_id = id
+                break
+
+        if not npc_data:
+            return
+
+        # Create a dialog to display NPC details
+        details_dialog = QDialog(self)
+        details_dialog.setWindowTitle(f"Character: {npc_name}")
+        details_dialog.setMinimumSize(500, 400)
+        details_dialog.setStyleSheet(f"background-color: {BG_COLOR};")
+
+        layout = QVBoxLayout(details_dialog)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+
+        # Create scrollable area for content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(15)
+
+        # NPC portrait/image placeholder
+        portrait_label = QLabel()
+        portrait_label.setFixedSize(150, 150)
+        portrait_label.setStyleSheet(f"background-color: {DM_NAME_COLOR}; border-radius: 75px;")
+        portrait_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        portrait_label.setText(npc_name[0].upper())  # First letter as placeholder
+
+        font = QFont()
+        font.setPointSize(40)
+        font.setBold(True)
+        portrait_label.setFont(font)
+        portrait_label.setStyleSheet(f"color: white; background-color: {DM_NAME_COLOR}; border-radius: 75px;")
+
+        # Center the portrait
+        portrait_layout = QHBoxLayout()
+        portrait_layout.addStretch(1)
+        portrait_layout.addWidget(portrait_label)
+        portrait_layout.addStretch(1)
+        scroll_layout.addLayout(portrait_layout)
+
+        # NPC details in styled sections
+        section_style = f"""
+            QLabel {{
+                color: {HIGHLIGHT_COLOR};
+                font-size: 16px;
+                font-weight: bold;
+                padding-bottom: 5px;
+                border-bottom: 1px solid {DM_NAME_COLOR};
+            }}
+        """
+
+        content_style = f"""
+            QLabel {{
+                color: #3A1E64;
+                font-size: 14px;
+                padding: 5px;
+                background-color: white;
+                border-radius: 5px;
+            }}
+        """
+
+        # Basic info section
+        basic_info_label = QLabel("Basic Information")
+        basic_info_label.setStyleSheet(section_style)
+        scroll_layout.addWidget(basic_info_label)
+
+        basic_info = f"""
+        <b>Name:</b> {npc_data['name']}<br>
+        <b>Race:</b> {npc_data['race']}<br>
+        <b>Disposition:</b> {npc_data['disposition']}<br>
+        <b>Current Location:</b> {self.game_state['locations'][npc_data['location']]['name']}<br>
+        """
+
+        basic_info_content = QLabel()
+        basic_info_content.setTextFormat(Qt.TextFormat.RichText)
+        basic_info_content.setText(basic_info)
+        basic_info_content.setStyleSheet(content_style)
+        basic_info_content.setWordWrap(True)
+        scroll_layout.addWidget(basic_info_content)
+
+        # Description section
+        description_label = QLabel("Description")
+        description_label.setStyleSheet(section_style)
+        scroll_layout.addWidget(description_label)
+
+        description_content = QLabel(npc_data['description'])
+        description_content.setStyleSheet(content_style)
+        description_content.setWordWrap(True)
+        scroll_layout.addWidget(description_content)
+
+        # Personality section
+        personality_label = QLabel("Personality & Motivation")
+        personality_label.setStyleSheet(section_style)
+        scroll_layout.addWidget(personality_label)
+
+        personality_content = QLabel(f"""
+        <b>Motivation:</b> {npc_data['motivation']}<br>
+        <b>Dialogue Style:</b> {npc_data['dialogue_style']}<br>
+        """)
+        personality_content.setTextFormat(Qt.TextFormat.RichText)
+        personality_content.setStyleSheet(content_style)
+        personality_content.setWordWrap(True)
+        scroll_layout.addWidget(personality_content)
+
+        # Knowledge section if available
+        if npc_data['knowledge']:
+            knowledge_label = QLabel("Knowledge")
+            knowledge_label.setStyleSheet(section_style)
+            scroll_layout.addWidget(knowledge_label)
+
+            knowledge_text = "<ul>"
+            for knowledge_item in npc_data['knowledge']:
+                knowledge_text += f"<li>{knowledge_item}</li>"
+            knowledge_text += "</ul>"
+
+            knowledge_content = QLabel(knowledge_text)
+            knowledge_content.setTextFormat(Qt.TextFormat.RichText)
+            knowledge_content.setStyleSheet(content_style)
+            knowledge_content.setWordWrap(True)
+            scroll_layout.addWidget(knowledge_content)
+
+        # Relationships section if available
+        if npc_data['relationships']:
+            relationships_label = QLabel("Relationships")
+            relationships_label.setStyleSheet(section_style)
+            scroll_layout.addWidget(relationships_label)
+
+            relationships_text = "<ul>"
+            for rel_name, rel_type in npc_data['relationships'].items():
+                relationships_text += f"<li><b>{rel_name}:</b> {rel_type}</li>"
+            relationships_text += "</ul>"
+
+            relationships_content = QLabel(relationships_text)
+            relationships_content.setTextFormat(Qt.TextFormat.RichText)
+            relationships_content.setStyleSheet(content_style)
+            relationships_content.setWordWrap(True)
+            scroll_layout.addWidget(relationships_content)
+
+        # Narrative memory related to this NPC
+        memory_entries = []
+
+        # Check each memory category for mentions of this NPC
+        for category, items in self.game_state['narrative_memory'].items():
+            for item in items:
+                if npc_name.lower() in item.lower():
+                    memory_entries.append(item)
+
+        if memory_entries:
+            memory_label = QLabel("Narrative Memory")
+            memory_label.setStyleSheet(section_style)
+            scroll_layout.addWidget(memory_label)
+
+            memory_text = "<ul>"
+            for entry in memory_entries:
+                memory_text += f"<li>{entry}</li>"
+            memory_text += "</ul>"
+
+            memory_content = QLabel(memory_text)
+            memory_content.setTextFormat(Qt.TextFormat.RichText)
+            memory_content.setStyleSheet(content_style)
+            memory_content.setWordWrap(True)
+            scroll_layout.addWidget(memory_content)
+
+        # Finish setting up the scroll area
+        scroll_area.setWidget(scroll_content)
+        layout.addWidget(scroll_area)
+
+        # Add a close button
+        close_button = QPushButton("Close")
+        close_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {ACCENT_COLOR}; 
+                color: white; 
+                border-radius: 6px; 
+                padding: 10px;
+                font-weight: bold;
+                min-width: 100px;
+            }}
+            QPushButton:hover {{ background-color: {HIGHLIGHT_COLOR}; }}
+        """)
+        close_button.clicked.connect(details_dialog.accept)
+
+        button_layout = QHBoxLayout()
+        button_layout.addStretch(1)
+        button_layout.addWidget(close_button)
+        button_layout.addStretch(1)
+        layout.addLayout(button_layout)
+
+        # Show the dialog
+        details_dialog.exec()
+
+    def show_location_details(self, item):
+        """Show detailed information about the selected location"""
+        if not self.game_state:
+            return
+
+        # Extract location name from the list item
+        location_name = item.text()
+
+        # Find the location in the game state
+        location_data = None
+        location_id = None
+        for id, location in self.game_state['locations'].items():
+            if location['name'] == location_name:
+                location_data = location
+                location_id = id
+                break
+
+        if not location_data:
+            return
+
+        # Create a dialog to display location details
+        details_dialog = QDialog(self)
+        details_dialog.setWindowTitle(f"Location: {location_name}")
+        details_dialog.setMinimumSize(500, 400)
+        details_dialog.setStyleSheet(f"background-color: {BG_COLOR};")
+
+        layout = QVBoxLayout(details_dialog)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+
+        # Create scrollable area for content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(15)
+
+        # Location header
+        header_label = QLabel(location_name)
+        header_font = QFont()
+        header_font.setPointSize(18)
+        header_font.setBold(True)
+        header_label.setFont(header_font)
+        header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header_label.setStyleSheet(f"color: {HIGHLIGHT_COLOR}; margin-bottom: 10px;")
+        scroll_layout.addWidget(header_label)
+
+        # Location details in styled sections
+        section_style = f"""
+            QLabel {{
+                color: {HIGHLIGHT_COLOR};
+                font-size: 16px;
+                font-weight: bold;
+                padding-bottom: 5px;
+                border-bottom: 1px solid {DM_NAME_COLOR};
+            }}
+        """
+
+        content_style = f"""
+            QLabel {{
+                color: #3A1E64;
+                font-size: 14px;
+                padding: 5px;
+                background-color: white;
+                border-radius: 5px;
+            }}
+        """
+
+        # Description section
+        description_label = QLabel("Description")
+        description_label.setStyleSheet(section_style)
+        scroll_layout.addWidget(description_label)
+
+        description_content = QLabel(location_data['description'])
+        description_content.setStyleSheet(content_style)
+        description_content.setWordWrap(True)
+        scroll_layout.addWidget(description_content)
+
+        # Ambience section
+        ambience_label = QLabel("Ambience")
+        ambience_label.setStyleSheet(section_style)
+        scroll_layout.addWidget(ambience_label)
+
+        ambience_content = QLabel(location_data['ambience'])
+        ambience_content.setStyleSheet(content_style)
+        ambience_content.setWordWrap(True)
+        scroll_layout.addWidget(ambience_content)
+
+        # Connected locations section
+        connected_label = QLabel("Connected Locations")
+        connected_label.setStyleSheet(section_style)
+        scroll_layout.addWidget(connected_label)
+
+        connected_text = "<ul>"
+        if location_data['connected_to']:
+            for connected_id in location_data['connected_to']:
+                if connected_id in self.game_state['locations']:
+                    connected_text += f"<li>{self.game_state['locations'][connected_id]['name']}</li>"
+        else:
+            connected_text += "<li>No connected locations</li>"
+        connected_text += "</ul>"
+
+        connected_content = QLabel(connected_text)
+        connected_content.setTextFormat(Qt.TextFormat.RichText)
+        connected_content.setStyleSheet(content_style)
+        connected_content.setWordWrap(True)
+        scroll_layout.addWidget(connected_content)
+
+        # NPCs present section
+        npcs_label = QLabel("NPCs Present")
+        npcs_label.setStyleSheet(section_style)
+        scroll_layout.addWidget(npcs_label)
+
+        npcs_text = "<ul>"
+        if location_data['npcs_present']:
+            for npc_id in location_data['npcs_present']:
+                if npc_id in self.game_state['npcs']:
+                    npc = self.game_state['npcs'][npc_id]
+                    npcs_text += f"<li><b>{npc['name']}</b> - {npc['disposition']}</li>"
+        else:
+            npcs_text += "<li>No NPCs present</li>"
+        npcs_text += "</ul>"
+
+        npcs_content = QLabel(npcs_text)
+        npcs_content.setTextFormat(Qt.TextFormat.RichText)
+        npcs_content.setStyleSheet(content_style)
+        npcs_content.setWordWrap(True)
+        scroll_layout.addWidget(npcs_content)
+
+        # Points of interest section
+        if location_data['points_of_interest']:
+            poi_label = QLabel("Points of Interest")
+            poi_label.setStyleSheet(section_style)
+            scroll_layout.addWidget(poi_label)
+
+            poi_text = "<ul>"
+            for poi in location_data['points_of_interest']:
+                poi_text += f"<li>{poi.replace('_', ' ').title()}</li>"
+            poi_text += "</ul>"
+
+            poi_content = QLabel(poi_text)
+            poi_content.setTextFormat(Qt.TextFormat.RichText)
+            poi_content.setStyleSheet(content_style)
+            poi_content.setWordWrap(True)
+            scroll_layout.addWidget(poi_content)
+
+        # Available quests section
+        if location_data['available_quests']:
+            quests_label = QLabel("Available Quests")
+            quests_label.setStyleSheet(section_style)
+            scroll_layout.addWidget(quests_label)
+
+            quests_text = "<ul>"
+            for quest_id in location_data['available_quests']:
+                if quest_id in self.game_state['quests']:
+                    quest = self.game_state['quests'][quest_id]
+                    quests_text += f"<li><b>{quest['name']}</b> - {quest['description']}</li>"
+            quests_text += "</ul>"
+
+            quests_content = QLabel(quests_text)
+            quests_content.setTextFormat(Qt.TextFormat.RichText)
+            quests_content.setStyleSheet(content_style)
+            quests_content.setWordWrap(True)
+            scroll_layout.addWidget(quests_content)
+
+        # Narrative memory related to this location
+        memory_entries = []
+
+        # Check each memory category for mentions of this location
+        for category, items in self.game_state['narrative_memory'].items():
+            for item in items:
+                if location_name.lower() in item.lower():
+                    memory_entries.append(item)
+
+        if memory_entries:
+            memory_label = QLabel("Narrative Memory")
+            memory_label.setStyleSheet(section_style)
+            scroll_layout.addWidget(memory_label)
+
+            memory_text = "<ul>"
+            for entry in memory_entries:
+                memory_text += f"<li>{entry}</li>"
+            memory_text += "</ul>"
+
+            memory_content = QLabel(memory_text)
+            memory_content.setTextFormat(Qt.TextFormat.RichText)
+            memory_content.setStyleSheet(content_style)
+            memory_content.setWordWrap(True)
+            scroll_layout.addWidget(memory_content)
+
+        # Finish setting up the scroll area
+        scroll_area.setWidget(scroll_content)
+        layout.addWidget(scroll_area)
+
+        # Add interactive buttons
+        button_layout = QHBoxLayout()
+
+        # Add a travel button if not current location
+        if location_id != self.game_state['game_info']['current_location']:
+            travel_button = QPushButton("Travel Here")
+            travel_button.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {ACCENT_COLOR}; 
+                    color: white; 
+                    border-radius: 6px; 
+                    padding: 10px;
+                    font-weight: bold;
+                    min-width: 100px;
+                }}
+                QPushButton:hover {{ background-color: {HIGHLIGHT_COLOR}; }}
+            """)
+            travel_button.clicked.connect(lambda: self.travel_to_location(location_id, details_dialog))
+            button_layout.addWidget(travel_button)
+
+        # Add close button
+        close_button = QPushButton("Close")
+        close_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {ACCENT_COLOR}; 
+                color: white; 
+                border-radius: 6px; 
+                padding: 10px;
+                font-weight: bold;
+                min-width: 100px;
+            }}
+            QPushButton:hover {{ background-color: {HIGHLIGHT_COLOR}; }}
+        """)
+        close_button.clicked.connect(details_dialog.accept)
+        button_layout.addWidget(close_button)
+
+        layout.addLayout(button_layout)
+
+        # Show the dialog
+        details_dialog.exec()
+
+    def show_quest_details(self, item):
+        """Show detailed information about the selected quest"""
+        if not self.game_state:
+            return
+
+        # Extract quest name from the list item (remove status icon)
+        quest_text = item.text()
+        if quest_text.startswith("✓ ") or quest_text.startswith("⚠ ") or quest_text.startswith("? "):
+            quest_name = quest_text[2:].strip()
+        else:
+            quest_name = quest_text
+
+        # Find the quest in the game state
+        quest_data = None
+        quest_id = None
+        for id, quest in self.game_state['quests'].items():
+            if quest['name'] == quest_name:
+                quest_data = quest
+                quest_id = id
+                break
+
+        if not quest_data:
+            return
+
+        # Create a dialog to display quest details
+        details_dialog = QDialog(self)
+        details_dialog.setWindowTitle(f"Quest: {quest_name}")
+        details_dialog.setMinimumSize(500, 400)
+        details_dialog.setStyleSheet(f"background-color: {BG_COLOR};")
+
+        layout = QVBoxLayout(details_dialog)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
+
+        # Create scrollable area for content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(15)
+
+        # Quest header with status
+        status_text = ""
+        if quest_data['status'] == "active":
+            status_text = " (Active)"
+            status_color = "#FF9800"  # Orange
+        elif quest_data['status'] == "completed":
+            status_text = " (Completed)"
+            status_color = "#4CAF50"  # Green
+        else:
+            status_text = " (Inactive)"
+            status_color = "#9E9E9E"  # Gray
+
+        header_label = QLabel(f"{quest_name}{status_text}")
+        header_font = QFont()
+        header_font.setPointSize(18)
+        header_font.setBold(True)
+        header_label.setFont(header_font)
+        header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header_label.setStyleSheet(f"color: {status_color}; margin-bottom: 10px;")
+        scroll_layout.addWidget(header_label)
+
+        # Quest details in styled sections
+        section_style = f"""
+            QLabel {{
+                color: {HIGHLIGHT_COLOR};
+                font-size: 16px;
+                font-weight: bold;
+                padding-bottom: 5px;
+                border-bottom: 1px solid {DM_NAME_COLOR};
+            }}
+        """
+
+        content_style = f"""
+            QLabel {{
+                color: #3A1E64;
+                font-size: 14px;
+                padding: 5px;
+                background-color: white;
+                border-radius: 5px;
+            }}
+        """
+
+        # Description section
+        description_label = QLabel("Description")
+        description_label.setStyleSheet(section_style)
+        scroll_layout.addWidget(description_label)
+
+        description_content = QLabel(quest_data['description'])
+        description_content.setStyleSheet(content_style)
+        description_content.setWordWrap(True)
+        scroll_layout.addWidget(description_content)
+
+        # Quest giver section
+        giver_label = QLabel("Quest Giver")
+        giver_label.setStyleSheet(section_style)
+        scroll_layout.addWidget(giver_label)
+
+        giver_name = quest_data['giver']
+        # Try to find the NPC if it's not "narrator"
+        if giver_name != "narrator":
+            for npc_id, npc in self.game_state['npcs'].items():
+                if npc_id == giver_name or npc['name'].lower() == giver_name.lower():
+                    giver_name = npc['name']
+                    break
+
+        giver_content = QLabel(giver_name.title())
+        giver_content.setStyleSheet(content_style)
+        giver_content.setWordWrap(True)
+        scroll_layout.addWidget(giver_content)
+
+        # Quest steps section
+        steps_label = QLabel("Quest Steps")
+        steps_label.setStyleSheet(section_style)
+        scroll_layout.addWidget(steps_label)
+
+        steps_text = "<ul>"
+        for step in quest_data['steps']:
+            check = "✓" if step.get('completed', False) else "□"
+            steps_text += f"<li><b>{check}</b> {step['description']}</li>"
+        steps_text += "</ul>"
+
+        steps_content = QLabel(steps_text)
+        steps_content.setTextFormat(Qt.TextFormat.RichText)
+        steps_content.setStyleSheet(content_style)
+        steps_content.setWordWrap(True)
+        scroll_layout.addWidget(steps_content)
+
+        # Additional details section
+        details_label = QLabel("Additional Details")
+        details_label.setStyleSheet(section_style)
+        scroll_layout.addWidget(details_label)
+
+        details_text = f"""
+        <b>Difficulty:</b> {quest_data.get('difficulty', 'Standard')}<br>
+        <b>Time Sensitive:</b> {'Yes' if quest_data.get('time_sensitive', False) else 'No'}<br>
+        """
+
+        details_content = QLabel(details_text)
+        details_content.setTextFormat(Qt.TextFormat.RichText)
+        details_content.setStyleSheet(content_style)
+        details_content.setWordWrap(True)
+        scroll_layout.addWidget(details_content)
+
+        # Narrative memory related to this quest
+        memory_entries = []
+
+        # Check each memory category for mentions of this quest
+        for category, items in self.game_state['narrative_memory'].items():
+            for item in items:
+                if quest_name.lower() in item.lower():
+                    memory_entries.append(item)
+
+        if memory_entries:
+            memory_label = QLabel("Narrative Memory")
+            memory_label.setStyleSheet(section_style)
+            scroll_layout.addWidget(memory_label)
+
+            memory_text = "<ul>"
+            for entry in memory_entries:
+                memory_text += f"<li>{entry}</li>"
+            memory_text += "</ul>"
+
+            memory_content = QLabel(memory_text)
+            memory_content.setTextFormat(Qt.TextFormat.RichText)
+            memory_content.setStyleSheet(content_style)
+            memory_content.setWordWrap(True)
+            scroll_layout.addWidget(memory_content)
+
+        # Finish setting up the scroll area
+        scroll_area.setWidget(scroll_content)
+        layout.addWidget(scroll_area)
+
+        # Add a close button
+        close_button = QPushButton("Close")
+        close_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {ACCENT_COLOR}; 
+                color: white; 
+                border-radius: 6px; 
+                padding: 10px;
+                font-weight: bold;
+                min-width: 100px;
+            }}
+            QPushButton:hover {{ background-color: {HIGHLIGHT_COLOR}; }}
+        """)
+        close_button.clicked.connect(details_dialog.accept)
+
+        button_layout = QHBoxLayout()
+        button_layout.addStretch(1)
+        button_layout.addWidget(close_button)
+        button_layout.addStretch(1)
+        layout.addLayout(button_layout)
+
+        # Show the dialog
+        details_dialog.exec()
+
+    def travel_to_location(self, location_id, parent_dialog=None):
+        """Travel to the specified location"""
+        if not self.game_state or location_id not in self.game_state['locations']:
+            return
+
+        # Check if location is connected to current location
+        current_loc_id = self.game_state['game_info']['current_location']
+        current_loc = self.game_state['locations'][current_loc_id]
+
+        if location_id not in current_loc['connected_to']:
+            QMessageBox.warning(self, "Travel Error",
+                                "You cannot travel directly to this location. It is not connected to your current location.")
+            return
+
+        # Update current location
+        self.game_state['game_info']['current_location'] = location_id
+
+        # Mark location as visited
+        self.game_state['locations'][location_id]['visited'] = True
+
+        # Add travel message to display
+        location_name = self.game_state['locations'][location_id]['name']
+        self.text_display.append_system_message(f"You travel to {location_name}.")
+
+        # Update the game status
+        self.update_game_status()
+
+        # Close parent dialog if provided
+        if parent_dialog:
+            parent_dialog.accept()
 
 
 

@@ -13,7 +13,7 @@
     "current_quest": "main_quest",
     "time_of_day": "morning",
     "days_passed": 0,
-    "model_name": "llama3.3:latest",
+    "model_name": "benevolentjoker/nsfwmonika:latest",
     "temperature": 0.7,
     "top_p": 0.9,
     "max_tokens": 2048
@@ -64,7 +64,10 @@
       "name": "Ralph's House",
       "description": "It's his house",
       "ambience": "The environment sets the mood for your adventure.",
-      "connected_to": [],
+      "connected_to": [
+        "location_room",
+        "location_revealed"
+      ],
       "npcs_present": [
         "npc_catherine"
       ],
@@ -74,6 +77,32 @@
         "main_quest"
       ],
       "visited": true
+    },
+    "location_room": {
+      "name": "Ralph's Room",
+      "description": "Ralph's personal room where they live.",
+      "ambience": "The atmosphere has a distinct character that affects your senses.",
+      "connected_to": [
+        "starting_location"
+      ],
+      "npcs_present": [],
+      "points_of_interest": [],
+      "secrets": [],
+      "available_quests": [],
+      "visited": false
+    },
+    "location_revealed": {
+      "name": "revealed",
+      "description": "A place recently discovered in the story.",
+      "ambience": "The atmosphere has a distinct character that affects your senses.",
+      "connected_to": [
+        "starting_location"
+      ],
+      "npcs_present": [],
+      "points_of_interest": [],
+      "secrets": [],
+      "available_quests": [],
+      "visited": false
     }
   },
   "items": {},
@@ -113,6 +142,14 @@
         {
           "speaker": "DM",
           "text": ""
+        },
+        {
+          "speaker": "Player",
+          "text": "Get on the couch with her"
+        },
+        {
+          "speaker": "DM",
+          "text": "Catherine's eyes sparkle with intrigue as she pats the couch beside her, a sly smile spreading across her face. The aroma of freshly brewed coffee wafts through the air, mingling with the scent of morning sunlight. What will you do?"
         }
       ]
     }
@@ -133,34 +170,60 @@
   "narrative_memory": {
     "world_facts": [
       "Ralph's House exists.",
-      "2."
+      "2.",
+      "The room has blinds.",
+      "Freshly brewed coffee is present."
     ],
     "character_development": [
       "Catherine is interested in player.",
-      "3."
+      "3.",
+      "Catherine shows interest in the player through a sly smile.",
+      "The player's intentions are not specified."
     ],
     "relationships": [
       "Catherine shows interest in player.",
-      "4."
+      "4.",
+      "No new relationships or alliances formed."
     ],
-    "plot_developments": [],
-    "player_decisions": [],
+    "plot_developments": [
+      "**The player is invited to sit beside Catherine.**"
+    ],
+    "player_decisions": [
+      "or actions taken:",
+      "The player is invited to sit beside Catherine, but their choice is not specified."
+    ],
     "environment_details": [
       "Room has couch and blinds.",
       "5. Environment details: Coffee is present.",
-      "6."
+      "6.",
+      "No new environment details revealed."
     ],
-    "conversation_details": [],
+    "conversation_details": [
+      "Catherine invites the player to sit beside her.",
+      "The aroma of freshly brewed coffee and morning sunlight are mentioned."
+    ],
     "new_npcs": [
       "Catherine is an NPC.",
-      "8. New NPCs: Ralph is an NPC (mentioned)."
+      "8. New NPCs: Ralph is an NPC (mentioned).",
+      "None, only Catherine's interest in the player is noted."
     ],
     "new_locations": [
       "Ralph's House is a location.",
-      "7."
+      "7.",
+      "Still Ralph's House, no new location revealed."
     ],
-    "new_items": [],
-    "new_quests": []
+    "new_items": [
+      "Coffee, which is already present, does not introduce a new item."
+    ],
+    "new_quests": [
+      "or missions:",
+      "No new quests or missions introduced."
+    ]
   },
-  "important_updates": []
+  "important_updates": [
+    "New Character: None, only Catherine's interest in the player is noted.",
+    "New Location: Still Ralph's House, no new location revealed.",
+    "New Quest: or missions:",
+    "New Quest: No new quests or missions introduced."
+  ]
 }

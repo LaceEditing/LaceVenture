@@ -13,9 +13,9 @@
     "current_quest": "main_quest",
     "time_of_day": "morning",
     "days_passed": 0,
-    "temperature": 0.9,
-    "top_p": 1.0,
-    "max_tokens": 2048,
+    "temperature": 0.7,
+    "top_p": 0.7,
+    "max_tokens": 1024,
     "model_name": "benevolentjoker/nsfwmonika:latest",
     "model_type": "local",
     "model_path": "C:/Users/Admin/Documents/GitHub/LaceVenture/models/NemoMix-Unleashed-12B-Q6_K_L.gguf"
@@ -407,6 +407,22 @@
         {
           "speaker": "DM",
           "text": "Error: Failed to load local model. Check console for details."
+        },
+        {
+          "speaker": "Player",
+          "text": "kiss her"
+        },
+        {
+          "speaker": "DM",
+          "text": "As soon as the words are out of your mouth, your lips meet hers in a passionate kiss. The moment is electric, with sparks flying everywhere, and the air around you thickening like a physical presence.\n\nKelly's response is immediate and intense, her body pressing into yours as she deepens the kiss. Her fingers intertwine with yours, holding you close as if she never wants to let go.\n\nThe break room around you fades away, and all that's left is the two of you, lost in the moment. The world outside seems to have stopped, and time itself has frozen, as if waiting for your next move.\n\nYour lips are like fire, burning with a passion that can't be contained. Kelly's response is like a match to gasoline, igniting a passion that threatens to consume them both.\n\nAs you kiss her back, the world around you begins to unravel, and all that's left is the two of you, lost in the moment. The break room around you fades away, and all that's left is the soft hum of the fluorescent lights above, casting an otherworldly glow over everything.\n\nKelly's fingers tighten around yours, holding you close as if she never wants to let go. Her body presses into yours, and you can feel her heart beating in time with your own. The moment is like nothing either of you has ever experienced before - a perfect blend of passion, desire, and pure, unadulterated joy.\n\nAs the kiss deepens, the world outside begins to fade away, and all that's left is the two of you, lost in the moment. Your lips are on fire, burning with a passion that can't be contained. Kelly's response is like a match to gasoline, igniting a passion that threatens to consume them both.\n\nThe break room around you fades away, and all that's left is the soft hum of the fluorescent lights above, casting an otherworldly glow over everything. Your fingers are intertwined with hers, holding her close as if she never wants to let go.\n\nAs the moment reaches its climax, the world around you seems to hold its breath, waiting for what comes next. The tension is palpable, building up to a crescendo that threatens to shatter everything in its path.\n\nAnd then, just as suddenly as it began, it's over. The kiss breaks off, and Kelly steps back, her eyes locked onto yours with a look of pure adoration.\n\nYou're left standing there, your heart pounding in your chest like a drum. You can feel the air around you thickening, charged with an electric energy that threatens to burst forth at any moment.\n\nKelly's voice is barely above a whisper, but it sends shivers down your spine. \"I think that was just what I needed,\" she says, her eyes never leaving yours as she takes another step closer.\n\nWhat do you do next?\nYou can choose from the following options:\n\n1. Kiss her again\n2. Try to take things slow\n3. Tell her how you feel\n\nChoose a option:"
+        },
+        {
+          "speaker": "Player",
+          "text": "push her onto the bed"
+        },
+        {
+          "speaker": "DM",
+          "text": "The break room is suddenly empty, and all that's left are the two of you, standing in an awkward silence. Kelly looks at you with a mixture of confusion and surprise.\n\nYou can see the tension between you both dissipating, replaced by a sense of unease. The air around you seems to have lost its electric charge, and the world outside has returned to normal.\n\nKelly takes a step back, her eyes locked onto yours with a look of uncertainty. \"I... I think we should talk about what just happened,\" she says, her voice barely above a whisper.\n\nYou can feel your heart pounding in your chest as you try to process what's happening. The moment that was building up to something so much more has suddenly fizzled out, leaving you with a sense of disappointment and confusion.\n\nWhat do you do next?\n\n1. Try to kiss her again\n2. Tell her how you feel\n3. Take things slow"
         }
       ]
     }
@@ -443,7 +459,9 @@
       "**",
       "(player or NPCs, personality traits, abilities, motivations): No new information about character development was provided. Kelly's flirtatious personality and mischievous gaze are already known from the previous interactions.",
       "Kelly's flirtatious personality and mischievous gaze are already known. The exchange focuses on the physical interaction between her and the player, not their personalities or motivations.",
-      "** Kelly demonstrates a change in her approach towards the player, indicating a deeper level of interest in pursuing a romantic relationship."
+      "** Kelly demonstrates a change in her approach towards the player, indicating a deeper level of interest in pursuing a romantic relationship.",
+      "* Kelly's voice drips with seduction suggesting a playful and flirtatious tone.",
+      "* Kelly's fingers brushing against the player sparks electricity."
     ],
     "relationships": [
       "**",
@@ -464,7 +482,8 @@
       "The shift in dynamic between the player and Kelly is significant as they move from playful banter to a more personal level with Kelly inviting the player for lunch or dinner, revealing her desire for a deeper connection. This suggests their relationship is progressing towards something more serious.",
       "Define the connections between your characters by establishing alliances, rivalries, and romantic interests. Show how these relationships evolve throughout the story, and don't be afraid to add complexity with betrayals, conflicts, or unexpected friendships.",
       "Example: Create tension between two characters who have opposing views on a crucial decision, leading to disagreements and arguments that impact their relationship.",
-      "** The growing attraction between the player and Kelly is further emphasized by their physical interaction and Kelly's invitation to grab lunch or dinner together."
+      "** The growing attraction between the player and Kelly is further emphasized by their physical interaction and Kelly's invitation to grab lunch or dinner together.",
+      "* Kelly invites the player to lunch or dinner hinting at a deeper connection."
     ],
     "plot_developments": [
       "* Kelly invites Chesto for coffee, hinting at a deeper connection.",
@@ -474,7 +493,8 @@
       "**",
       "(story progression, revelations, mysteries, goals): The most significant plot development is the shift in dynamic between the player and Kelly. Their interactions have moved beyond playful banter to a more personal level, with Kelly inviting the player for lunch or dinner, revealing her desire for a deeper connection. This sets the stage for further exploration of their relationship and potential romantic involvement.",
       "Kelly invites Chesto for coffee, hinting at a deeper connection. The player follows Kelly into the break room for a private conversation and she invites them to lunch or dinner, revealing a desire for a personal connection. These plot developments indicate that both characters are interested in pursuing a romantic relationship.",
-      "** The break room becomes a significant location for the story as it serves as the setting for this developing connection."
+      "** The break room becomes a significant location for the story as it serves as the setting for this developing connection.",
+      "* The story develops a romantic plot between the player and Kelly."
     ],
     "player_decisions": [
       "or actions taken:",
@@ -483,7 +503,8 @@
       "or actions taken**",
       "or actions taken (player choices, consequences, achievements): No new decisions or actions were made by the player in this exchange.",
       "or actions taken: No new decisions or actions were made by the player in this exchange. They simply followed Kelly into the break room.",
-      "or actions taken:** No new decisions or actions were made by the player in this exchange. They simply followed Kelly into the break room."
+      "or actions taken:** No new decisions or actions were made by the player in this exchange. They simply followed Kelly into the break room.",
+      "* The player follows Kelly into the break room."
     ],
     "environment_details": [
       "* The cubicle area is described as having a thickening air of anticipation.",
@@ -494,7 +515,9 @@
       "**",
       "(room descriptions, objects, atmosphere, sensory details): The exchange emphasizes the cozy and intimate atmosphere of the break room, which serves as a perfect setting for their developing relationship. Kelly's fingers brushing against the player's skin create an electric sensation, further intensifying the moment.",
       "The exchange emphasizes the cozy and intimate atmosphere of the break room, which serves as a perfect setting for their developing relationship. Kelly's fingers brushing against the player's skin create an electric sensation, further intensifying the moment. This description helps establish the emotional tone of the scene.",
-      "** The cozy and intimate atmosphere of the break room is highlighted, which further intensifies their developing relationship."
+      "** The cozy and intimate atmosphere of the break room is highlighted, which further intensifies their developing relationship.",
+      "* The cubicle area has thickening air of anticipation.",
+      "* Kelly's fingers brushing against the player sparks electricity."
     ],
     "conversation_details": [
       "* Kelly's voice drips with seduction, suggesting a playful and flirtatious tone.",
@@ -504,7 +527,8 @@
       "**",
       "(important dialogue, information shared, questions raised): No new information was revealed through dialogue in this exchange. The focus is on the physical interaction and the growing attraction between the characters.",
       "No new information was revealed through dialogue in this exchange. The focus is on the physical interaction and growing attraction between the characters.",
-      "** Kelly mentions grabbing lunch or dinner together, hinting at a deeper connection."
+      "** Kelly mentions grabbing lunch or dinner together, hinting at a deeper connection.",
+      "* Kelly mentions grabbing lunch or dinner together hinting at a deeper connection."
     ],
     "new_npcs": [
       "**",
@@ -518,21 +542,24 @@
       "(names, descriptions, roles, distinctive traits): No new NPCs were introduced in this exchange.",
       "No new NPCs were introduced in this exchange. Kelly is an existing NPC.",
       "No new NPCs are introduced as Kelly is an existing NPC. However, her actions demonstrate a change in her approach towards the player, indicating a deeper level of interest in pursuing a romantic relationship.",
-      "** No new NPCs were introduced in this exchange."
+      "** No new NPCs were introduced in this exchange.",
+      "* None introduced, Kelly is an existing NPC."
     ],
     "new_locations": [
       "* **The break room becomes a significant location in the story.**",
       "**",
       "(names, descriptions, atmosphere, significance): No new locations were mentioned or revealed.",
       "No new locations were mentioned or revealed.",
-      "** No new locations were mentioned or revealed."
+      "** No new locations were mentioned or revealed.",
+      "* The break room becomes a significant location in the story."
     ],
     "new_items": [
       "* No new information.",
       "**",
       "(names, descriptions, properties, significance): No new items were introduced in the exchange.",
       "No new items were introduced in the exchange.",
-      "** No new items were introduced in the exchange."
+      "** No new items were introduced in the exchange.",
+      "* None introduced."
     ],
     "new_quests": [
       "or missions:",
@@ -541,13 +568,14 @@
       "or missions**",
       "or missions (goals, requirements, rewards, related characters): No new quests or missions were discussed in this exchange.",
       "or missions: No new quests or missions were discussed in this exchange.",
-      "or missions:** No new quests or missions were discussed in this exchange."
+      "or missions:** No new quests or missions were discussed in this exchange.",
+      "* None mentioned or revealed."
     ]
   },
   "important_updates": [
-    "Plot: ** The break room becomes a significant location for the story as it serves as the setting for this developing connection.",
-    "New Character: ** No new NPCs were introduced in this exchange.",
-    "New Location: ** No new locations were mentioned or revealed.",
-    "New Quest: or missions:** No new quests or missions were discussed in this exchange."
+    "New Character: * None introduced, Kelly is an existing NPC.",
+    "New Location: * The break room becomes a significant location in the story.",
+    "New Quest: or missions:",
+    "New Quest: * None mentioned or revealed."
   ]
 }
