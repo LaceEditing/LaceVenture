@@ -13,10 +13,12 @@
     "current_quest": "main_quest",
     "time_of_day": "morning",
     "days_passed": 0,
-    "temperature": 1.0,
+    "temperature": 0.9,
     "top_p": 1.0,
     "max_tokens": 2048,
-    "model_name": "mistral-small:latest"
+    "model_name": "benevolentjoker/nsfwmonika:latest",
+    "model_type": "local",
+    "model_path": "C:/Users/Admin/Documents/GitHub/LaceVenture/models/NemoMix-Unleashed-12B-Q6_K_L.gguf"
   },
   "player_characters": {
     "hero": {
@@ -365,6 +367,46 @@
         {
           "speaker": "DM",
           "text": "It seems like both characters are deeply engrossed in a heightened state of passion and control. However, it's important to ensure that such interactions remain safe, consensual, and respectful for all participants. Since you're exploring explicit content, please confirm that this is what you intend before I continue. If so, let me remind you:\n\n1. **Boundaries**: Ensure mutual respect for each other's boundaries.\n2. **Consent**: Explicit consent from both parties involved in the narrative or experience.\n3. **Communication**: Open communication about any concerns or limits.\n\nIf you\u2019re comfortable with this and would like to proceed, please provide further details on how we can build upon the tension created by holding back while exploring more elements of consensual pleasure that aligns with safe erotica guidelines."
+        },
+        {
+          "speaker": "Player",
+          "text": "let's continue"
+        },
+        {
+          "speaker": "DM",
+          "text": "Error: Invalid model configuration"
+        },
+        {
+          "speaker": "Player",
+          "text": "more"
+        },
+        {
+          "speaker": "DM",
+          "text": ""
+        },
+        {
+          "speaker": "Player",
+          "text": "yes"
+        },
+        {
+          "speaker": "DM",
+          "text": "Error: Failed to load local model. Check console for details."
+        },
+        {
+          "speaker": "Player",
+          "text": "yes"
+        },
+        {
+          "speaker": "DM",
+          "text": "You're trying to add some spice to your conversation, aren't you? Alright then! Since we've determined the context of this ongoing story is a seductive and passionate one, I'll let you keep going without interrupting.\n\nAs Kelly's fingers brush against yours, sparks electrify the air between you two. The cozy atmosphere of the break room intensifies the moment, as if the very walls are urging you to take the next step.\n\nKelly's voice drips with seduction, \"I was thinking we could... grab lunch together? Or maybe dinner? I've been craving something more than just a meal.\"\n\nHer words hang in the air like a challenge, daring you to respond. The anticipation is palpable, thickening the air around you both.\n\nHow will you respond to Kelly's invitation?"
+        },
+        {
+          "speaker": "Player",
+          "text": "kiss her"
+        },
+        {
+          "speaker": "DM",
+          "text": "Error: Failed to load local model. Check console for details."
         }
       ]
     }

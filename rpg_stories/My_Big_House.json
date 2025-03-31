@@ -16,7 +16,8 @@
     "model_name": "benevolentjoker/nsfwmonika:latest",
     "temperature": 0.7,
     "top_p": 0.9,
-    "max_tokens": 1848
+    "max_tokens": 1848,
+    "model_type": "ollama"
   },
   "player_characters": {
     "hero": {
