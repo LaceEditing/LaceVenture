@@ -3765,112 +3765,130 @@ class LaceAIdventureGUI(QMainWindow):
             return
 
         new_characters_added = False
+        extracted_characters = {}
 
         # Process direct "New Character:" annotations from the AI
         all_exchanges = []
         for session in self.game_state['conversation_history']:
             all_exchanges.extend(session['exchanges'])
 
-        # Check the most recent 5 exchanges for "New Character:" patterns
-        for exchange in all_exchanges[-5:]:
+        # Check the most recent 10 exchanges for character patterns
+        for exchange in all_exchanges[-10:]:
             if exchange['speaker'] == "DM":
-                # Look for "New Character:" patterns
+                # Pattern 1: "New Character: **Name**" format
                 new_char_matches = re.findall(r"New Character:\s*\*\*\s*(.*?)(?:\.|$)", exchange['text'], re.MULTILINE)
+
+                # Pattern 2: Character introduction patterns
+                intro_patterns = [
+                    r"(?:a|an|the) (?:man|woman|person) (?:called|named) ([A-Z][a-zA-Z\s\-']+)",
+                    r"([A-Z][a-zA-Z\s\-']+), (?:a|an|the) (?:man|woman|person)",
+                    r"(?:introduces|introduced) (?:himself|herself|themselves) as ([A-Z][a-zA-Z\s\-']+)"
+                ]
+
+                for pattern in intro_patterns:
+                    intro_matches = re.findall(pattern, exchange['text'])
+                    new_char_matches.extend(intro_matches)
+
+                # Pattern 3: Dialog attribution
+                dialog_matches = re.findall(r'"([^"]+)," said ([A-Z][a-zA-Z\s\-\']+)', exchange['text'])
+                for match in dialog_matches:
+                    if len(match) > 1:
+                        name = match[1].strip()
+                        if name not in ["He", "She", "They", "I", "You"] and len(name) > 2:
+                            new_char_matches.append(name)
+
+                # Process matched character names
                 for match in new_char_matches:
-                    # Extract character name
-                    name_match = re.search(r"([A-Z][a-zA-Z\s\-'\"]+)(?:\s+–|\s+-|,|\s+a|\s+the)", match)
+                    # Extract character name and basic info
+                    name_match = re.search(r"([A-Z][a-zA-Z\s\-']+)(?:\s+–|\s+-|,|\s+a|\s+the)", match)
                     if name_match:
                         character_name = name_match.group(1).strip()
-                        # Look for details
-                        description = match
+                    else:
+                        # Just use the whole match if no structured format
+                        character_name = match.strip()
 
-                        # Check if this character already exists
-                        char_exists = False
-                        for existing_npc in self.game_state['npcs'].values():
-                            if character_name.lower() in existing_npc['name'].lower():
-                                char_exists = True
-                                break
+                    # Skip common words that aren't character names
+                    if character_name.lower() in ["the", "this", "that", "these", "those", "he", "she", "they"]:
+                        continue
 
-                        # If not found, add new character
-                        if not char_exists:
-                            npc_id = "npc_" + "".join([c.lower() if c.isalnum() else "_" for c in character_name])
+                    description = match
 
-                            # Build character profile
-                            self.game_state['npcs'][npc_id] = {
-                                "name": character_name,
-                                "race": "Human",  # Default
-                                "description": description,
-                                "location": self.game_state['game_info']['current_location'],
-                                "disposition": "neutral",
-                                "motivation": "unknown",
-                                "knowledge": [],
-                                "relationships": {},
-                                "dialogue_style": "speaks normally"
-                            }
-
-                            # Add to current location
-                            current_loc = self.game_state['game_info']['current_location']
-                            if npc_id not in self.game_state['locations'][current_loc]['npcs_present']:
-                                self.game_state['locations'][current_loc]['npcs_present'].append(npc_id)
-
-                            new_characters_added = True
-                            print(f"Added character from DM text: {character_name}")
+                    # Add to extracted characters
+                    extracted_characters[character_name] = {
+                        "name": character_name,
+                        "description": description,
+                        "location": self.game_state['game_info']['current_location']
+                    }
 
         # Also check memory entries
         for npc_entry in self.game_state['narrative_memory'].get('new_npcs', []):
-            # Try to extract character name
-            name_match = re.search(
-                r"(?:new character|newcomer|stranger|met|named|called) ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
-                npc_entry, re.IGNORECASE)
+            # Try to extract character name using various patterns
+            name_patterns = [
+                r"([A-Z][a-zA-Z\s\-']+)\s+(?:is|was|–|-)(?:\s+a|\s+the)?",
+                r"(?:named|called)\s+([A-Z][a-zA-Z\s\-']+)",
+                r"([A-Z][a-zA-Z\s\-']+)(?:,|\s+a|\s+the)"
+            ]
 
-            if name_match:
-                npc_name = name_match.group(1).strip()
+            for pattern in name_patterns:
+                name_match = re.search(pattern, npc_entry)
+                if name_match:
+                    npc_name = name_match.group(1).strip()
+                    # Skip common words that aren't character names
+                    if npc_name.lower() in ["the", "this", "that", "these", "those", "he", "she", "they"]:
+                        continue
 
-                # Check if this NPC already exists
-                npc_exists = False
-                for existing_npc in self.game_state['npcs'].values():
-                    if existing_npc['name'].lower() == npc_name.lower():
-                        npc_exists = True
-                        break
+                    # Add to extracted characters if not already present
+                    if npc_name not in extracted_characters:
+                        extracted_characters[npc_name] = {
+                            "name": npc_name,
+                            "description": npc_entry,
+                            "location": self.game_state['game_info']['current_location']
+                        }
 
-                # If not found, add a new NPC entry
-                if not npc_exists:
-                    npc_id = "npc_" + "".join([c.lower() if c.isalnum() else "_" for c in npc_name])
+        # Add any extracted characters to the game state if they don't already exist
+        for character_name, character_info in extracted_characters.items():
+            # Check if this character already exists
+            char_exists = False
+            for existing_npc in self.game_state['npcs'].values():
+                # Use fuzzy matching to catch slight name variations
+                if character_name.lower() in existing_npc['name'].lower() or existing_npc[
+                    'name'].lower() in character_name.lower():
+                    char_exists = True
+                    break
 
-                    self.game_state['npcs'][npc_id] = {
-                        "name": npc_name,
-                        "race": "Human",  # Default values
-                        "description": f"A character mentioned in the story. Details: {npc_entry}",
-                        "location": self.game_state['game_info']['current_location'],
-                        "disposition": "neutral",
-                        "motivation": "unknown",
-                        "knowledge": [],
-                        "relationships": {},
-                        "dialogue_style": "speaks normally"
-                    }
+            # If not found, add as new character
+            if not char_exists:
+                npc_id = "npc_" + "".join([c.lower() if c.isalnum() else "_" for c in character_name])
 
-                    # Add to current location
-                    current_loc = self.game_state['game_info']['current_location']
-                    if npc_id not in self.game_state['locations'][current_loc]['npcs_present']:
-                        self.game_state['locations'][current_loc]['npcs_present'].append(npc_id)
+                # Build character profile
+                self.game_state['npcs'][npc_id] = {
+                    "name": character_name,
+                    "race": "Human",  # Default
+                    "description": character_info.get("description", "A character in the story."),
+                    "location": self.game_state['game_info']['current_location'],
+                    "disposition": "neutral",
+                    "motivation": "unknown",
+                    "knowledge": [],
+                    "relationships": {},
+                    "dialogue_style": "speaks normally"
+                }
 
-                    new_characters_added = True
-                    print(f"Added character from memory: {npc_name}")
+                # Add to current location
+                current_loc = self.game_state['game_info']['current_location']
+                if npc_id not in self.game_state['locations'][current_loc]['npcs_present']:
+                    self.game_state['locations'][current_loc]['npcs_present'].append(npc_id)
 
-        # If new characters were added, save the game state
+                new_characters_added = True
+                print(f"Added new character: {character_name}")
+
+        # If new characters were added, save the game state and update the journal
         if new_characters_added:
             # Save the game state
             rpg_engine.save_game_state(self.game_state, self.story_name)
 
-            # Force update the journal
+            # Update the journal
             if hasattr(self, 'journal') and self.journal is not None:
                 self.journal.update_journal(self.game_state, detect_changes=True)
-
-                # Focus on the Characters tab
-                for i in range(self.journal.count()):
-                    if self.journal.tabText(i) == "Characters":
-                        self.journal.setCurrentIndex(i)
-                        break
 
     def handle_initial_response(self, initial_prompt, response):
         """Handle the initial response from the model with journal initialization"""

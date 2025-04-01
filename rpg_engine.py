@@ -1998,6 +1998,49 @@ def update_dynamic_elements(game_state, memory_updates):
                     if quest_id not in game_state['locations'][current_loc]['available_quests']:
                         game_state['locations'][current_loc]['available_quests'].append(quest_id)
 
+        # Check plot developments and player decisions for quest completion
+        for category in ['plot_developments', 'player_decisions']:
+            for item in memory_updates.get(category, []):
+                # Look for active quests
+                for quest_id, quest in game_state['quests'].items():
+                    if quest['status'] != "completed":
+                        # Check if quest name appears in the memory item
+                        quest_name_lower = quest['name'].lower()
+                        item_lower = item.lower()
+
+                        # Look for completion phrases
+                        completion_phrases = [
+                            "completed", "finished", "accomplished", "done",
+                            "succeeded", "achieved", "fulfilled"
+                        ]
+
+                        quest_mentioned = quest_name_lower in item_lower
+                        completion_mentioned = any(phrase in item_lower for phrase in completion_phrases)
+
+                        # Special case for common quest types
+                        if not (quest_mentioned and completion_mentioned):
+                            # Check for specific action completion based on quest name
+                            if "get a" in quest_name_lower or "find a" in quest_name_lower or "obtain a" in quest_name_lower:
+                                target_item = \
+                                quest_name_lower.split("get a ")[-1].split("find a")[-1].split("obtain a")[-1].strip()
+                                if target_item and f"got {target_item}" in item_lower or f"found {target_item}" in item_lower or f"obtained {target_item}" in item_lower or f"has {target_item}" in item_lower or f"took {target_item}" in item_lower or f"took a {target_item}" in item_lower:
+                                    completion_mentioned = True
+                                    quest_mentioned = True
+
+                        # If quest appears to be completed
+                        if quest_mentioned and completion_mentioned:
+                            print(f"Detected completion of quest: {quest['name']}")
+                            quest['status'] = "completed"
+
+                            # Mark all steps as completed
+                            for step in quest['steps']:
+                                step['completed'] = True
+
+                            # Add to important updates
+                            if 'important_updates' not in game_state:
+                                game_state['important_updates'] = []
+                            game_state['important_updates'].append(f"Quest completed: {quest['name']}")
+
     return game_state
 
 
