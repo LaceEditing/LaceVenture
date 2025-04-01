@@ -1,0 +1,144 @@
+{
+  "game_info": {
+    "title": "The Cafe of Doom",
+    "world_name": "Atlanta",
+    "genre": "Dark Romance",
+    "setting": "A world just like real life",
+    "tone": "Dark, Mysterious",
+    "rating": "M",
+    "plot_pace": "Slice-of-life",
+    "game_system": "Romance RPG",
+    "session_count": 1,
+    "current_location": "starting_location",
+    "current_quest": "main_quest",
+    "time_of_day": "morning",
+    "days_passed": 0,
+    "temperature": 1.7,
+    "top_p": 0.9,
+    "max_tokens": 3059,
+    "model_name": "hf.co/bartowski/Mistral-Small-22B-ArliAI-RPMax-v1.1-GGUF:IQ4_XS",
+    "response_length": 2
+  },
+  "player_characters": {
+    "hero": {
+      "name": "Smith",
+      "race": "Human",
+      "class": "Musician",
+      "level": 1,
+      "abilities": [
+        "Manipulation",
+        "Persuasion"
+      ],
+      "inventory": [
+        "basic_equipment",
+        "rations"
+      ],
+      "health": 20,
+      "max_health": 20,
+      "gold": 15,
+      "experience": 0,
+      "relationships": {},
+      "quests": [
+        "main_quest"
+      ],
+      "character_traits": [
+        "Persuasive",
+        "Charismatic",
+        "Charming"
+      ]
+    }
+  },
+  "npcs": {
+    "npc_kelly": {
+      "name": "Kelly",
+      "race": "Human",
+      "description": "A small, attractive young woman with a slim figure, long black hair, green eyes, and pale skin",
+      "location": "starting_location",
+      "disposition": "friendly",
+      "motivation": "Secretly desires sexual gratification, but will fight to never show it",
+      "knowledge": [],
+      "relationships": {},
+      "dialogue_style": "Aggressive,Tsundere,Flirty"
+    }
+  },
+  "locations": {
+    "starting_location": {
+      "name": "The local coffee shop",
+      "description": "It's where Smith gets his morning coffee",
+      "ambience": "The environment sets the mood for romance.",
+      "connected_to": [],
+      "npcs_present": [
+        "npc_kelly"
+      ],
+      "points_of_interest": [],
+      "secrets": [],
+      "available_quests": [
+        "main_quest"
+      ],
+      "visited": true
+    }
+  },
+  "items": {},
+  "quests": {
+    "main_quest": {
+      "name": "Convince Kelly to sleep with you",
+      "description": "do it lol",
+      "status": "active",
+      "giver": "narrator",
+      "steps": [
+        {
+          "id": "begin_adventure",
+          "description": "Start your adventure",
+          "completed": false
+        }
+      ],
+      "difficulty": "beginner",
+      "time_sensitive": false
+    }
+  },
+  "conversation_history": [
+    {
+      "session": 1,
+      "exchanges": [
+        {
+          "speaker": "Player",
+          "text": "Please provide a brief introduction to this world and the beginning of my adventure."
+        },
+        {
+          "speaker": "DM",
+          "text": " Your journey begins in the bustling city of Smithtopia, where you find yourself as a budding musician looking for their big break. The streets are alive with the sounds of laughter, chatter, and music wafting from nearby bars and clubs. As you walk along the sidewalk, taking in the sights and sounds of the city, you spot a small caf\u00e9 on the corner that seems like the perfect place to start your day.\n\nAs you enter the caf\u00e9, the rich aroma of freshly brewed coffee fills your nostrils, mingling with the sweet scent of pastries. The cozy atmosphere is inviting, and you notice several patrons enjoying their morning coffee or working on their laptops. You make your way to the counter, where a friendly barista greets you with a warm smile.\n\n\"Good morning! What can I get for you today?\" she asks enthusiastically. Her name tag reads \"Kelly,\" and you can't help but notice how her slim figure is accentuated by her uniform. She looks up at you expectantly, awaiting your order.\n\nWhat will you do?"
+        }
+      ]
+    }
+  ],
+  "world_facts": [
+    "It's very similar to real life"
+  ],
+  "story_arcs": {
+    "main_arc": {
+      "description": "The main storyline",
+      "status": "active",
+      "related_quests": [
+        "main_quest"
+      ],
+      "plot_twists": []
+    }
+  },
+  "narrative_memory": {
+    "world_facts": [],
+    "character_development": [
+    ],
+    "relationships": [],
+    "plot_developments": [
+    ],
+    "player_decisions": [],
+    "environment_details": [
+    ],
+    "conversation_details": [],
+    "new_npcs": [],
+    "new_locations": [],
+    "new_items": [],
+    "new_quests": []
+  },
+  "important_updates": []
+}

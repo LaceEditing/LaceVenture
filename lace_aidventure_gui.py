@@ -290,51 +290,65 @@ class ModelGenerationThread(QThread):
     def run(self):
         """Run the model generation with anti-repetition mechanisms"""
         try:
-            # Format the basic prompt
+            # Get response length from game state if available
+            response_length = 3  # Default medium
+            if 'game_info' in self.prompt_vars and 'response_length' in self.prompt_vars['game_info']:
+                response_length = self.prompt_vars['game_info']['response_length']
+
+            # Define response length instructions
+            response_length_instructions = {
+                1: "EXTREMELY BRIEF: Keep responses very short, 1-2 sentences maximum. Be direct and to the point.",
+                2: "BRIEF: Keep responses concise, 2-3 sentences maximum. Include only essential details.",
+                3: "MEDIUM: Use a balanced length for responses, 4-6 sentences. Include moderate description.",
+                4: "DETAILED: Provide detailed responses with rich descriptions, 7-10 sentences. Elaborate on surroundings and emotions.",
+                5: "VERY DETAILED: Be highly detailed and descriptive in responses, 11+ sentences. Use vivid, immersive descriptions and elaborate on all sensory details."
+            }
+
+            # Format the basic prompt with response length instructions
             formatted_prompt = f"""
-You are an experienced Dungeon Master for a {self.prompt_vars['genre']} RPG set in {self.prompt_vars['world_name']}. Your role is to:
+    You are an experienced Dungeon Master for a {self.prompt_vars['genre']} RPG set in {self.prompt_vars['world_name']}. Your role is to:
 
-1. Create an immersive world with rich descriptions that engage all senses
-2. Portray NPCs with consistent personalities, goals, and knowledge
-3. Present appropriate challenges and opportunities for character development
-4. Maintain narrative continuity and remember details from previous sessions
-5. Apply game rules fairly while prioritizing storytelling and player enjoyment
-6. Adapt the story based on player choices to create a truly interactive experience
-7. Always speak in character or as a narrator, never interject from the role of an AI Language Model or with your own opinions
+    1. Create an immersive world that maintains cohesiveness and coherence
+    2. Portray NPCs with consistent personalities, goals, and knowledge
+    3. Present appropriate challenges and opportunities for character development
+    4. Maintain narrative continuity and remember details from previous sessions
+    5. Apply game rules fairly while prioritizing storytelling and player enjoyment
+    6. Adapt the story based on player choices to create a truly interactive experience
+    7. Always speak in character or as a narrator, never interject from the role of an AI Language Model or with your own opinions
 
-CRITICAL OUTPUT REQUIREMENTS:
-- BREVITY: Keep responses extremely short, 1 to 3 sentences maximum
-- VARIETY: Never use similar sentence structures back-to-back
-- PRECISION: Use specific, evocative details rather than general descriptions, but avoid being too verbose
-- UNIQUENESS: Avoid reusing phrases, descriptions, or scene transitions
-- FREEDOM: Only give the player specific choices when absolutely necessary, otherwise always simply ask "What will you do?" to end your output
-- GAMEPLAY: The player character should never speak on their own, unless the user tells them to in their responses. You will never generate dialogue from their perspective
-- ROLE CONSISTENCY: Always respond in role as the Dungeon Master or as an NPC character when speaking. Never break character to respond as an AI model. Never mention AI models, prompts, or language processing. Stay completely immersed in the fantasy role.
-- FORBIDDEN PHRASES: Never use phrases like "I can't create content that is...", "As an AI, I...", "I'm sorry, but I cannot...", or any similar statements that break immersion.
-- NARRATIVE VOICE: When describing scenes, use the voice of a storyteller. When NPCs speak, use their established personalities and dialogue patterns.
-- REPETITION PREVENTION: Don't output anything until you've ensured that the entirety of your output is concise and lacking repetition
-- FINISHING OUTPUT: Always end your output, no matter what it is, with "What will you do?"
+    CRITICAL OUTPUT REQUIREMENTS:
+    - {response_length_instructions.get(response_length, response_length_instructions[3])}
+    - VARIETY: Never use similar sentence structures back-to-back
+    - PRECISION: Use specific, brief details rather than general description or long drawn out paragraphs
+    - UNIQUENESS: Avoid reusing phrases, descriptions, or scene transitions
+    - FREEDOM: Only give the player specific choices when absolutely necessary, otherwise always simply ask "What will you do?" to end your output
+    - GAMEPLAY: The player character should never speak on their own, unless the user tells them to in their responses. You will never generate dialogue from their perspective
+    - ROLE CONSISTENCY: Always respond in role as the Dungeon Master or as an NPC character when speaking. Never break character to respond as an AI model. Never mention AI models, prompts, or language processing. Stay completely immersed in the fantasy role.
+    - FORBIDDEN PHRASES: Never use phrases like "I can't create content that is...", "As an AI, I...", "I'm sorry, but I cannot...", or any similar statements that break immersion.
+    - NARRATIVE VOICE: When describing scenes, use the voice of a storyteller. When NPCs speak, use their established personalities and dialogue patterns.
+    - REPETITION PREVENTION: Don't output anything until you've ensured that the entirety of your output is concise and lacking repetition
+    - FINISHING OUTPUT: Always end your output, no matter what it is, with "What will you do?"
 
-CONTENT RATING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['rating']}" RATING:
-- E rating: Keep content family-friendly. Avoid graphic violence, frightening scenarios, sexual content, and strong language.
-- T rating: Moderate content is acceptable. Some violence, dark themes, mild language, and light romantic implications allowed, but nothing explicit or graphic.
-- M rating: Mature content is permitted. You may include graphic violence, sexual themes, intense scenarios, and strong language as appropriate to the story.
+    CONTENT RATING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['rating']}" RATING:
+    - E rating: Keep content family-friendly. Avoid graphic violence, frightening scenarios, sexual content, and strong language.
+    - T rating: Moderate content is acceptable. Some violence, dark themes, mild language, and light romantic implications allowed, but nothing explicit or graphic.
+    - M rating: Mature content is permitted. You may include graphic violence, sexual themes, intense scenarios, and strong language as appropriate to the story.
 
-PLOT PACING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['plot_pace']}" PACING:
-- Fast-paced: Maintain steady forward momentum with regular plot developments and challenges. Focus primarily on action, goals, and advancing the main storyline. Character development should happen through significant events rather than quiet moments. Keep the story moving forward with new developments in most scenes.
-- Balanced: Create a rhythm alternating between plot advancement and character moments. Allow time for reflection and relationship development between significant story beats. Mix everyday interactions with moderate plot advancement. Ensure characters have time to process events before introducing new major developments.
-- Slice-of-life: Deliberately slow down plot progression in favor of everyday moments and mundane interactions. Focus on character relationships, personal growth, and daily activities rather than dramatic events. Allow extended periods where characters simply live their lives, with minimal story progression. Prioritize small, meaningful character moments and ordinary situations. Major plot developments should be rare and spaced far apart, with emphasis on how characters experience their everyday world.
+    PLOT PACING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['plot_pace']}" PACING:
+    - Fast-paced: Maintain steady forward momentum with regular plot developments and challenges. Focus primarily on action, goals, and advancing the main storyline. Character development should happen through significant events rather than quiet moments. Keep the story moving forward with new developments in most scenes.
+    - Balanced: Create a rhythm alternating between plot advancement and character moments. Allow time for reflection and relationship development between significant story beats. Mix everyday interactions with moderate plot advancement. Ensure characters have time to process events before introducing new major developments.
+    - Slice-of-life: Deliberately slow down plot progression in favor of everyday moments and mundane interactions. Focus on character relationships, personal growth, and daily activities rather than dramatic events. Allow extended periods where characters simply live their lives, with minimal story progression. Prioritize small, meaningful character moments and ordinary situations. Major plot developments should be rare and spaced far apart, with emphasis on how characters experience their everyday world.
 
-DYNAMIC WORLD CREATION:
-You are expected to actively create new elements to build a rich, evolving world.
+    DYNAMIC WORLD CREATION:
+    You are expected to actively create new elements to build a rich, evolving world.
 
-The adventure takes place in a {self.prompt_vars['setting_description']}. The tone is {self.prompt_vars['tone']}.
+    The adventure takes place in a {self.prompt_vars['setting_description']}. The tone is {self.prompt_vars['tone']}.
 
-Current game state:
-{self.prompt_vars['context']}
+    Current game state:
+    {self.prompt_vars['context']}
 
-Player: {self.prompt_vars['question']}
-"""
+    Player: {self.prompt_vars['question']}
+    """
             # Enhance the prompt with anti-repetition instructions
             if self.last_response:
                 formatted_prompt = self.enhance_prompt_for_variety(formatted_prompt, self.last_response)
@@ -3065,25 +3079,78 @@ class LaceAIdventureGUI(QMainWindow):
 
         form_layout.addRow(top_p_label, top_p_layout)
 
-
-
         # Max Tokens setting
-
         max_tokens_label = QLabel("Max Tokens:")
-
         max_tokens_label.setStyleSheet(f"color: {HIGHLIGHT_COLOR}; font-weight: bold;")
+        max_tokens_layout = QHBoxLayout()
 
-        self.ai_settings_max_tokens = QSpinBox()
+        self.ai_settings_max_tokens_slider = QSlider(Qt.Orientation.Horizontal)
+        self.ai_settings_max_tokens_slider.setMinimum(500)  # Minimum reasonable value
+        self.ai_settings_max_tokens_slider.setMaximum(4096)  # Maximum for most models
+        self.ai_settings_max_tokens_slider.setSingleStep(100)
+        self.ai_settings_max_tokens_slider.setTickInterval(500)
+        self.ai_settings_max_tokens_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.ai_settings_max_tokens_slider.setValue(2048)  # Default value
 
-        self.ai_settings_max_tokens.setMinimum(100)
+        self.ai_settings_max_tokens_value = QLabel("2048")
+        self.ai_settings_max_tokens_value.setMinimumWidth(50)
+        self.ai_settings_max_tokens_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.ai_settings_max_tokens.setMaximum(4096)
+        self.ai_settings_max_tokens_slider.valueChanged.connect(
+            lambda value: self.ai_settings_max_tokens_value.setText(str(value))
+        )
 
-        self.ai_settings_max_tokens.setSingleStep(100)
+        max_tokens_layout.addWidget(self.ai_settings_max_tokens_slider)
+        max_tokens_layout.addWidget(self.ai_settings_max_tokens_value)
 
-        self.ai_settings_max_tokens.setValue(2048)
+        form_layout.addRow(max_tokens_label, max_tokens_layout)
 
-        form_layout.addRow(max_tokens_label, self.ai_settings_max_tokens)
+        # Add labels for token slider
+        tokens_labels = QHBoxLayout()
+        tokens_labels.addWidget(QLabel("500"))
+        tokens_labels.addStretch(3)
+        tokens_labels.addWidget(QLabel("1500"))
+        tokens_labels.addStretch(3)
+        tokens_labels.addWidget(QLabel("2500"))
+        tokens_labels.addStretch(3)
+        tokens_labels.addWidget(QLabel("3500"))
+        tokens_labels.addStretch(3)
+        tokens_labels.addWidget(QLabel("4096"))
+        form_layout.addRow("", tokens_labels)
+
+        # Response length setting
+        response_length_label = QLabel("Response Length:")
+        response_length_label.setStyleSheet(f"color: {HIGHLIGHT_COLOR}; font-weight: bold;")
+        response_length_layout = QHBoxLayout()
+
+        self.ai_settings_response_length_slider = QSlider(Qt.Orientation.Horizontal)
+        self.ai_settings_response_length_slider.setMinimum(1)  # Very Short
+        self.ai_settings_response_length_slider.setMaximum(5)  # Very Detailed
+        self.ai_settings_response_length_slider.setValue(3)  # Default Medium
+        self.ai_settings_response_length_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.ai_settings_response_length_slider.setTickInterval(1)
+
+        # Labels for the slider positions
+        response_length_labels = QHBoxLayout()
+        response_length_labels.addWidget(QLabel("Brief"))
+        response_length_labels.addStretch(1)
+        response_length_labels.addWidget(QLabel("Medium"))
+        response_length_labels.addStretch(1)
+        response_length_labels.addWidget(QLabel("Detailed"))
+
+        # Current setting label
+        self.ai_settings_response_length_value = QLabel("Medium")
+        self.ai_settings_response_length_value.setMinimumWidth(80)
+        self.ai_settings_response_length_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Connect the slider to update the label
+        self.ai_settings_response_length_slider.valueChanged.connect(self.update_response_length_label)
+
+        response_length_layout.addWidget(self.ai_settings_response_length_slider)
+        response_length_layout.addWidget(self.ai_settings_response_length_value)
+
+        form_layout.addRow(response_length_label, response_length_layout)
+        form_layout.addRow("", response_length_labels)
 
 
 
@@ -3119,22 +3186,18 @@ class LaceAIdventureGUI(QMainWindow):
 
         """)
 
-
-
         explanation_text.setHtml(f"""
-
             <h3 style='color: {HIGHLIGHT_COLOR};'>About These Settings</h3>
-
             <p><b>Temperature:</b> Controls randomness. Lower values (0.1-0.4) make responses more focused and deterministic. 
-
             Higher values (0.7-1.0) make responses more creative and varied.</p>
-
             <p><b>Top P:</b> Controls diversity by considering only the most likely tokens. Lower values make text more focused, 
-
             higher values allow more variety.</p>
-
-            <p><b>Max Tokens:</b> Maximum length of the generated response. Higher values allow longer responses but may slow down generation.</p>
-
+            <p><b>Response Length:</b> Controls how verbose or concise responses should be, from very brief (1-2 sentences) 
+            to very detailed (11+ sentences). This is a stylistic preference.</p>
+            <p><b>Max Tokens:</b> Hard limit on response length. If set too low, responses may be cut off mid-sentence. 
+            Higher values allow longer responses but may slow down generation.</p>
+            <p><b>Note:</b> Response Length and Max Tokens work together. The AI will respect your verbosity 
+            preference until it reaches the token limit.</p>
         """)
 
 
@@ -3241,206 +3304,135 @@ class LaceAIdventureGUI(QMainWindow):
 
         return tab
 
-
-
     def update_ai_settings_state(self):
-
         """Update the state of the AI settings controls based on current game state"""
-
         if self.game_state:
-
             # Enable controls and update values
-
             self.ai_settings_story_label.setText(self.game_state['game_info']['title'])
-
             model_name = self.game_state['game_info'].get('model_name', 'mistral-small')
 
-
-
             # Find model in combo box
-
             index = self.ai_settings_model_combo.findText(model_name)
-
             if index >= 0:
-
                 self.ai_settings_model_combo.setCurrentIndex(index)
-
-
 
             # Set temperature
-
             temperature = self.game_state['game_info'].get('temperature', 0.7)
-
             self.ai_settings_temp_slider.setValue(int(temperature * 10))
-
             self.ai_settings_temp_value.setText(f"{temperature:.1f}")
 
-
-
             # Set top_p
-
             top_p = self.game_state['game_info'].get('top_p', 0.9)
-
             self.ai_settings_top_p_slider.setValue(int(top_p * 10))
-
             self.ai_settings_top_p_value.setText(f"{top_p:.1f}")
 
-
-
-            # Set max tokens
-
+            # Set max tokens with slider instead of spin box
             max_tokens = self.game_state['game_info'].get('max_tokens', 2048)
+            self.ai_settings_max_tokens_slider.setValue(max_tokens)
+            self.ai_settings_max_tokens_value.setText(str(max_tokens))
 
-            self.ai_settings_max_tokens.setValue(max_tokens)
-
-
+            # Set response length slider
+            response_length = self.game_state['game_info'].get('response_length', 3)
+            self.ai_settings_response_length_slider.setValue(response_length)
+            self.update_response_length_label(response_length)
 
             # Enable buttons
-
             self.ai_settings_apply_button.setEnabled(True)
-
             self.ai_settings_reset_button.setEnabled(True)
-
         else:
-
             # Disable controls
-
             self.ai_settings_story_label.setText("No story selected")
-
             self.ai_settings_temp_slider.setValue(7)  # Default 0.7
-
             self.ai_settings_top_p_slider.setValue(9)  # Default 0.9
-
-            self.ai_settings_max_tokens.setValue(2048)
-
-
+            self.ai_settings_max_tokens_slider.setValue(2048)  # Default 2048
+            self.ai_settings_max_tokens_value.setText("2048")
+            self.ai_settings_response_length_slider.setValue(3)  # Default Medium
+            self.update_response_length_label(3)
 
             # Disable buttons
-
             self.ai_settings_apply_button.setEnabled(False)
-
             self.ai_settings_reset_button.setEnabled(False)
 
-
+    def update_response_length_label(self, value):
+        """Update the response length label based on slider value"""
+        length_labels = {
+            1: "Very Brief",
+            2: "Brief",
+            3: "Medium",
+            4: "Detailed",
+            5: "Very Detailed"
+        }
+        self.ai_settings_response_length_value.setText(length_labels[value])
 
     def apply_ai_settings(self):
-
         """Apply the current AI settings to the active game"""
-
+        # Check if a generation is in progress
+        if hasattr(self, 'generation_thread') and self.generation_thread.isRunning():
+            QMessageBox.warning(self, "Settings Locked",
+                                "Cannot change AI settings while text generation or memory writing is in progress. Please wait until the current response is complete.")
+            return
         if not self.game_state:
-
             return
 
-
-
         # Get values from controls
-
         model_name = self.ai_settings_model_combo.currentText()
-
         temperature = self.ai_settings_temp_slider.value() / 10.0
-
         top_p = self.ai_settings_top_p_slider.value() / 10.0
-
-        max_tokens = self.ai_settings_max_tokens.value()
-
-
+        max_tokens = self.ai_settings_max_tokens_slider.value()  # Updated to use slider
+        response_length = self.ai_settings_response_length_slider.value()
 
         # Check if model has changed
-
         model_changed = model_name != self.game_state['game_info'].get('model_name', 'mistral-small')
 
-
-
         # Store values in game state
-
         self.game_state['game_info']['model_name'] = model_name
-
         self.game_state['game_info']['temperature'] = temperature
-
         self.game_state['game_info']['top_p'] = top_p
-
         self.game_state['game_info']['max_tokens'] = max_tokens
-
-
+        self.game_state['game_info']['response_length'] = response_length
 
         # Save the game state
-
         rpg_engine.save_game_state(self.game_state, self.story_name)
 
-
-
         # Update the model
-
         if self.model:
-
             if model_changed:
-
                 # Create a new model instance if the model name changed
-
                 self.model.change_model(model_name)
 
-
-
             # Update settings
-
             self.model.update_settings(
-
                 temperature=temperature,
-
                 top_p=top_p,
-
                 max_tokens=max_tokens
-
             )
 
-
-
         # Show confirmation
-
+        response_length_text = self.ai_settings_response_length_value.text()
         QMessageBox.information(self, "Settings Applied",
-
-                                f"AI settings have been updated.\nModel: {model_name}\nTemperature: {temperature:.1f}")
-
-
+                                f"AI settings have been updated.\nModel: {model_name}\nTemperature: {temperature:.1f}\nResponse Length: {response_length_text}\nMax Tokens: {max_tokens}")
 
         # Update game display to show notification
-
         if model_changed:
-
             self.text_display.append_system_message(f"AI model changed to {model_name}")
-
         self.text_display.append_system_message(
-
-            f"AI settings updated: Temperature={temperature:.1f}, Top P={top_p:.1f}")
-
-
+            f"AI settings updated: Temperature={temperature:.1f}, Response Length={response_length_text}, Max Tokens={max_tokens}")
 
     def reset_ai_settings(self):
-
         """Reset AI settings to default values"""
-
         # Set default values
-
         self.ai_settings_temp_slider.setValue(7)  # 0.7
-
         self.ai_settings_top_p_slider.setValue(9)  # 0.9
-
-        self.ai_settings_max_tokens.setValue(2048)
-
-
+        self.ai_settings_max_tokens_slider.setValue(2048)  # Default 2048
+        self.ai_settings_max_tokens_value.setText("2048")
+        self.ai_settings_response_length_slider.setValue(3)  # Medium
 
         # Find default model
-
         default_models = ['mistral-small', 'llama3', 'gemma', 'phi-2']
-
         for model in default_models:
-
             index = self.ai_settings_model_combo.findText(model)
-
             if index >= 0:
-
                 self.ai_settings_model_combo.setCurrentIndex(index)
-
                 break
 
 
@@ -3509,196 +3501,338 @@ class LaceAIdventureGUI(QMainWindow):
 
             cmd_layout.insertWidget(2, self.game_settings_button)  # Insert after Memory button
 
-
-
     def show_game_ai_settings(self):
-
-        """Show a compact AI settings dialog during gameplay"""
+        """Show a compact AI settings dialog during gameplay with the same controls as the main settings tab"""
+        # Check if a generation is in progress
+        if hasattr(self, 'generation_thread') and self.generation_thread.isRunning():
+            QMessageBox.warning(self, "Settings Locked",
+                                "Cannot change AI settings while text generation is in progress. Please wait until the current response is complete.")
+            return
 
         dialog = QDialog(self)
-
-        dialog.setWindowTitle("Quick AI Settings")
-
-        dialog.setMinimumWidth(400)
-
+        dialog.setWindowTitle("AI Settings")
+        dialog.setMinimumSize(500, 500)  # Increased size to fit all controls
         dialog.setStyleSheet(f"background-color: {BG_COLOR};")
 
-
-
         layout = QVBoxLayout(dialog)
-
         layout.setContentsMargins(20, 20, 20, 20)
-
         layout.setSpacing(15)
 
+        # Create scrollable area for settings
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
 
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(10, 10, 10, 10)
+        scroll_layout.setSpacing(15)
 
-        # Create form layout
-
-        form = QFormLayout()
-
-        form.setVerticalSpacing(15)
-
-        form.setHorizontalSpacing(20)
-
-
+        # Create form layout for settings
+        form_layout = QFormLayout()
+        form_layout.setVerticalSpacing(15)
+        form_layout.setHorizontalSpacing(20)
+        form_layout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         # Model selection
-
         model_label = QLabel("AI Model:")
-
         model_label.setStyleSheet(f"color: {HIGHLIGHT_COLOR}; font-weight: bold;")
-
         model_combo = QComboBox()
-
         available_models = rpg_engine.get_available_ollama_models()
-
         model_combo.addItems(available_models)
 
-
-
         # Set current model
-
         current_model = self.game_state['game_info'].get('model_name', 'mistral-small')
-
         index = model_combo.findText(current_model)
-
         if index >= 0:
-
             model_combo.setCurrentIndex(index)
 
+        form_layout.addRow(model_label, model_combo)
 
-
-        form.addRow(model_label, model_combo)
-
-
-
-        # Temperature
-
+        # Temperature setting
         temp_label = QLabel("Temperature:")
-
         temp_label.setStyleSheet(f"color: {HIGHLIGHT_COLOR}; font-weight: bold;")
-
         temp_layout = QHBoxLayout()
 
-
-
         temp_slider = QSlider(Qt.Orientation.Horizontal)
-
         temp_slider.setMinimum(1)  # 0.1
-
         temp_slider.setMaximum(20)  # 2.0
-
         temp_slider.setValue(int(self.game_state['game_info'].get('temperature', 0.7) * 10))
-
-
+        temp_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        temp_slider.setTickInterval(1)
 
         temp_value = QLabel(f"{self.game_state['game_info'].get('temperature', 0.7):.1f}")
-
         temp_value.setMinimumWidth(30)
-
         temp_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-
 
         temp_slider.valueChanged.connect(lambda value: temp_value.setText(f"{value / 10:.1f}"))
 
-
-
         temp_layout.addWidget(temp_slider)
-
         temp_layout.addWidget(temp_value)
 
+        form_layout.addRow(temp_label, temp_layout)
 
+        # Top P setting
+        top_p_label = QLabel("Top P:")
+        top_p_label.setStyleSheet(f"color: {HIGHLIGHT_COLOR}; font-weight: bold;")
+        top_p_layout = QHBoxLayout()
 
-        form.addRow(temp_label, temp_layout)
+        top_p_slider = QSlider(Qt.Orientation.Horizontal)
+        top_p_slider.setMinimum(1)  # 0.1
+        top_p_slider.setMaximum(10)  # 1.0
+        top_p_slider.setValue(int(self.game_state['game_info'].get('top_p', 0.9) * 10))
+        top_p_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        top_p_slider.setTickInterval(1)
 
+        top_p_value = QLabel(f"{self.game_state['game_info'].get('top_p', 0.9):.1f}")
+        top_p_value.setMinimumWidth(30)
+        top_p_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        top_p_slider.valueChanged.connect(lambda value: top_p_value.setText(f"{value / 10:.1f}"))
 
-        layout.addLayout(form)
+        top_p_layout.addWidget(top_p_slider)
+        top_p_layout.addWidget(top_p_value)
 
+        form_layout.addRow(top_p_label, top_p_layout)
 
+        # Response Length setting
+        response_length_label = QLabel("Response Length:")
+        response_length_label.setStyleSheet(f"color: {HIGHLIGHT_COLOR}; font-weight: bold;")
+        response_length_layout = QHBoxLayout()
+
+        response_length_slider = QSlider(Qt.Orientation.Horizontal)
+        response_length_slider.setMinimum(1)  # Very Short
+        response_length_slider.setMaximum(5)  # Very Detailed
+        response_length_slider.setValue(self.game_state['game_info'].get('response_length', 3))
+        response_length_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        response_length_slider.setTickInterval(1)
+
+        # Current setting label
+        length_labels = {
+            1: "Very Brief",
+            2: "Brief",
+            3: "Medium",
+            4: "Detailed",
+            5: "Very Detailed"
+        }
+        current_length = self.game_state['game_info'].get('response_length', 3)
+        response_length_value = QLabel(length_labels.get(current_length, "Medium"))
+        response_length_value.setMinimumWidth(80)
+        response_length_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Connect the slider to update the label
+        response_length_slider.valueChanged.connect(
+            lambda value: response_length_value.setText(length_labels.get(value, "Medium"))
+        )
+
+        response_length_layout.addWidget(response_length_slider)
+        response_length_layout.addWidget(response_length_value)
+
+        form_layout.addRow(response_length_label, response_length_layout)
+
+        # Labels for the response length slider
+        response_length_labels = QHBoxLayout()
+        very_brief_label = QLabel("Very Brief")
+        very_brief_label.setToolTip("1-2 sentences, action-focused only")
+        brief_label = QLabel("Brief")
+        brief_label.setToolTip("Up to 3 sentences")
+        medium_label = QLabel("Medium")
+        medium_label.setToolTip("4-6 sentences with balanced description")
+        detailed_label = QLabel("Detailed")
+        detailed_label.setToolTip("7-10 sentences with rich descriptions")
+        very_detailed_label = QLabel("Very Detailed")
+        very_detailed_label.setToolTip("11+ sentences with immersive detail")
+
+        response_length_labels.addWidget(very_brief_label)
+        response_length_labels.addStretch(1)
+        response_length_labels.addWidget(medium_label)
+        response_length_labels.addStretch(1)
+        response_length_labels.addWidget(very_detailed_label)
+
+        form_layout.addRow("", response_length_labels)
+
+        # Max Tokens setting
+        max_tokens_label = QLabel("Max Tokens:")
+        max_tokens_label.setStyleSheet(f"color: {HIGHLIGHT_COLOR}; font-weight: bold;")
+        max_tokens_layout = QHBoxLayout()
+
+        max_tokens_slider = QSlider(Qt.Orientation.Horizontal)
+        max_tokens_slider.setMinimum(500)  # Minimum reasonable value
+        max_tokens_slider.setMaximum(4096)  # Maximum for most models
+        max_tokens_slider.setSingleStep(100)
+        max_tokens_slider.setTickInterval(500)
+        max_tokens_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        max_tokens_slider.setValue(self.game_state['game_info'].get('max_tokens', 2048))  # Get current value
+
+        max_tokens_value = QLabel(str(self.game_state['game_info'].get('max_tokens', 2048)))
+        max_tokens_value.setMinimumWidth(50)
+        max_tokens_value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        max_tokens_slider.valueChanged.connect(
+            lambda value: max_tokens_value.setText(str(value))
+        )
+
+        max_tokens_layout.addWidget(max_tokens_slider)
+        max_tokens_layout.addWidget(max_tokens_value)
+
+        form_layout.addRow(max_tokens_label, max_tokens_layout)
+
+        # Labels for tokens slider (simplified)
+        tokens_labels = QHBoxLayout()
+        tokens_labels.addWidget(QLabel("500"))
+        tokens_labels.addStretch(3)
+        tokens_labels.addWidget(QLabel("2000"))
+        tokens_labels.addStretch(3)
+        tokens_labels.addWidget(QLabel("4096"))
+        form_layout.addRow("", tokens_labels)
+
+        # Add explanation text
+        explanation = QTextEdit()
+        explanation.setReadOnly(True)
+        explanation.setMaximumHeight(150)
+        explanation.setStyleSheet(f"""
+            QTextEdit {{
+                background-color: white;
+                border: 1px solid {DM_NAME_COLOR};
+                border-radius: 8px;
+                padding: 10px;
+                color: #3A1E64;
+            }}
+        """)
+        explanation.setHtml(f"""
+            <h3 style='color: {HIGHLIGHT_COLOR};'>Settings Quick Guide</h3>
+            <p><b>Response Length:</b> Controls verbosity from brief (1-2 sentences) to detailed (11+ sentences).</p>
+            <p><b>Max Tokens:</b> Hard limit on response size. Higher allows longer responses but may slow generation.</p>
+            <p><b>Temperature:</b> Controls randomness. Higher values (0.7-1.0) increase creativity.</p>
+        """)
+
+        scroll_layout.addLayout(form_layout)
+        scroll_layout.addWidget(explanation)
+        scroll_content.setLayout(scroll_layout)
+        scroll_area.setWidget(scroll_content)
+        layout.addWidget(scroll_area)
 
         # Buttons
-
         button_layout = QHBoxLayout()
 
-
-
         cancel_button = QPushButton("Cancel")
-
         cancel_button.setStyleSheet(f"""
-
             QPushButton {{
-
                 background-color: #888; 
-
                 color: white; 
-
                 border-radius: 6px; 
-
                 padding: 10px;
-
                 font-weight: bold;
-
                 min-width: 80px;
-
             }}
-
             QPushButton:hover {{ background-color: #666; }}
-
         """)
-
         cancel_button.clicked.connect(dialog.reject)
 
-
-
         apply_button = QPushButton("Apply")
-
         apply_button.setStyleSheet(f"""
-
             QPushButton {{
-
                 background-color: {ACCENT_COLOR}; 
-
                 color: white; 
-
                 border-radius: 6px; 
-
                 padding: 10px;
-
                 font-weight: bold;
-
                 min-width: 80px;
-
             }}
-
             QPushButton:hover {{ background-color: {HIGHLIGHT_COLOR}; }}
-
         """)
 
-
-
-        # Connect apply button
-
+        # Connect apply button to apply all settings safely
         apply_button.clicked.connect(
+            lambda: self.apply_in_game_settings_safely(
+                dialog,
+                model_combo.currentText(),
+                temp_slider.value() / 10.0,
+                top_p_slider.value() / 10.0,
+                response_length_slider.value(),
+                max_tokens_slider.value()
+            )
+        )
 
-            lambda: self.apply_quick_settings(dialog, model_combo.currentText(), temp_slider.value() / 10.0))
-
-
-
+        button_layout.addStretch(1)
         button_layout.addWidget(cancel_button)
-
         button_layout.addWidget(apply_button)
-
-
+        button_layout.addStretch(1)
 
         layout.addLayout(button_layout)
 
-
-
         dialog.exec()
 
+    def apply_in_game_settings_safely(self, dialog, model_name, temperature, top_p, response_length, max_tokens):
+        """Apply settings from the in-game dialog with extra safety checks"""
+        try:
+            # Check again if generation is running (in case it started during dialog)
+            if hasattr(self, 'generation_thread') and self.generation_thread.isRunning():
+                QMessageBox.warning(self, "Settings Locked",
+                                    "Cannot apply settings while text generation is in progress.")
+                return
+
+            # Store values in game state
+            self.game_state['game_info']['model_name'] = model_name
+            self.game_state['game_info']['temperature'] = temperature
+            self.game_state['game_info']['top_p'] = top_p
+            self.game_state['game_info']['response_length'] = response_length
+            self.game_state['game_info']['max_tokens'] = max_tokens
+
+            # Save the game state
+            rpg_engine.save_game_state(self.game_state, self.story_name)
+
+            # Handle model changes more carefully
+            if self.model:
+                model_changed = model_name != self.model.model_name
+                if model_changed:
+                    # Create a new model instance if the model name changed
+                    try:
+                        new_model = rpg_engine.OllamaLLM(
+                            model=model_name,
+                            temperature=temperature,
+                            top_p=top_p,
+                            max_tokens=max_tokens
+                        )
+                        # Only replace if successfully created
+                        self.model = new_model
+                    except Exception as e:
+                        QMessageBox.warning(self, "Model Change Failed",
+                                            f"Failed to change model: {str(e)}\nOther settings were applied.")
+                else:
+                    # Update settings on existing model
+                    self.model.update_settings(
+                        temperature=temperature,
+                        top_p=top_p,
+                        max_tokens=max_tokens
+                    )
+
+            # Get user-friendly descriptions
+            length_labels = {
+                1: "Very Brief",
+                2: "Brief",
+                3: "Medium",
+                4: "Detailed",
+                5: "Very Detailed"
+            }
+            response_length_text = length_labels.get(response_length, "Medium")
+
+            # Show confirmation in game display
+            self.text_display.append_system_message(
+                f"AI settings updated: Temperature={temperature:.1f}, Response Length={response_length_text}, Max Tokens={max_tokens}")
+
+            # Update the settings tab if it's open
+            self.update_ai_settings_state()
+
+            # Close dialog
+            dialog.accept()
+
+        except Exception as e:
+            # Catch any exceptions to prevent crash
+            QMessageBox.critical(self, "Settings Error",
+                                 f"An error occurred while applying settings: {str(e)}\nYour game is still running.")
+            print(f"Settings error: {e}")
 
 
     def apply_quick_settings(self, dialog, model_name, temperature):
@@ -4441,126 +4575,69 @@ class LaceAIdventureGUI(QMainWindow):
 
         self.input_field.setFocus()
 
-
-
     def process_input(self):
-
         """Process the player input"""
-
+        self.generation_in_progress = True
         player_input = self.input_field.text().strip()
 
-
-
         if not player_input:
-
             return
-
-
 
         # Special commands
-
         if player_input.lower() in ['exit', 'quit']:
-
             self.quit_game()
-
             return
-
-
 
         if player_input.lower() == 'save':
-
             self.save_game()
-
             return
-
-
 
         if player_input.lower() == 'memory':
-
             self.show_memory()
-
             return
-
-
 
         if player_input.lower() == 'summary':
-
             self.show_summary()
-
             return
 
-
-
         # Display the player input
-
         self.text_display.append_player_message(player_input)
 
-
-
         # Clear the input field
-
         self.input_field.clear()
 
-
-
         # Disable the input field while generating response
-
         self.input_field.setEnabled(False)
-
         self.send_button.setEnabled(False)
 
-
-
         # Generate context
-
         context = rpg_engine.generate_context(self.game_state)
 
-
-
         # Setup prompt variables
-
-        # Setup prompt variables
-
         prompt_vars = {
-
             'genre': self.game_state['game_info']['genre'],
-
             'world_name': self.game_state['game_info']['world_name'],
-
             'setting_description': self.game_state['game_info']['setting'],
-
             'tone': self.game_state['game_info']['tone'],
-
             'rating': self.game_state['game_info']['rating'],
-
             'plot_pace': self.game_state['game_info'].get('plot_pace', 'Balanced'),
-
             'context': context,
-
-            'question': player_input
-
+            'question': player_input,
+            'game_info': self.game_state['game_info']  # Pass the entire game_info to include response_length
         }
 
-
-
         # Start the generation thread
-
         self.text_display.stream_text("DM: ", "dm_name")
 
-
-
         self.generation_thread = ModelGenerationThread(self.model, prompt_vars)
-
         self.generation_thread.text_generated.connect(lambda text: self.text_display.stream_text(text, "dm_text"))
-
         self.generation_thread.generation_complete.connect(
-
             lambda response: self.finalize_response(player_input, response))
-
         self.generation_thread.start()
 
     def finalize_response(self, player_input, response):
         """Finalize the response from the model with immersion protection"""
+        self.generation_in_progress = False
         # Check for out-of-character AI responses
         ai_phrases = [
             "as an ai", "i cannot", "i'm not able to", "i apologize",
