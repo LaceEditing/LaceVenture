@@ -15,6 +15,10 @@ from PyQt6.QtGui import QFont, QColor, QTextCursor, QTextCharFormat
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
 import rpg_engine
 
+from journal_interface import GameJournal
+
+
+
 # Constants - Lavender Theme
 
 SYSTEM_COLOR = "#6A4C93"  # Darkened deep lavender for better contrast
@@ -2078,549 +2082,131 @@ class LaceAIdventureGUI(QMainWindow):
 
         return tab
 
-
-
     def create_game_tab(self):
-
-        """Create the game interface"""
-
+        """Create the game interface with enhanced journal"""
         tab = QWidget()
-
         layout = QVBoxLayout(tab)
-
         layout.setContentsMargins(15, 15, 15, 15)
-
         layout.setSpacing(10)
 
-
-
-        # Create a splitter for resizable panels
-
+        # Create a horizontal splitter for resizable panels
         splitter = QSplitter(Qt.Orientation.Horizontal)
-
         splitter.setHandleWidth(8)  # Wider handle for easier resizing
-
         splitter.setStyleSheet(f"QSplitter::handle {{ background-color: {DM_NAME_COLOR}; }}")
 
-
-
         # Create the game display panel
-
         game_panel = QWidget()
-
         game_panel.setStyleSheet(f"background-color: #FFFFFF; border-radius: 10px;")
-
         game_layout = QVBoxLayout(game_panel)
-
         game_layout.setContentsMargins(12, 12, 12, 12)
-
         game_layout.setSpacing(10)
 
-
-
         # Create the text display area
-
         self.text_display = StreamingTextDisplay()
-
         self.text_display.setStyleSheet(f"""
-
             QTextEdit {{
-
                 background-color: white;
-
                 border: 1px solid {DM_NAME_COLOR};
-
                 border-radius: 10px;
-
                 padding: 10px;
-
                 font-size: 14px;
-
             }}
-
         """)
-
         game_layout.addWidget(self.text_display)
 
-
-
         # Create the input area
-
         input_layout = QHBoxLayout()
-
         input_layout.setSpacing(8)
 
-
-
         self.input_field = QLineEdit()
-
         self.input_field.setPlaceholderText("Enter your command...")
-
         self.input_field.setMinimumHeight(40)
-
         self.input_field.setStyleSheet(f"""
-
             QLineEdit {{
-
                 border: 2px solid {DM_NAME_COLOR};
-
                 border-radius: 8px;
-
                 padding: 8px;
-
                 font-size: 14px;
-
                 color: #3A1E64;
-
             }}
-
             QLineEdit:focus {{ border-color: {HIGHLIGHT_COLOR}; }}
-
         """)
-
         self.input_field.returnPressed.connect(self.process_input)
 
-
-
         self.send_button = QPushButton("Send")
-
         self.send_button.setMinimumHeight(40)
-
         self.send_button.setStyleSheet(f"""
-
             QPushButton {{
-
                 background-color: {DM_NAME_COLOR};
-
                 color: white;
-
                 border-radius: 8px;
-
                 padding: 8px 20px;
-
                 font-weight: bold;
-
             }}
-
             QPushButton:hover {{ background-color: {HIGHLIGHT_COLOR}; }}
-
         """)
-
         self.send_button.clicked.connect(self.process_input)
 
-
-
         input_layout.addWidget(self.input_field, 7)  # 70% of space
-
         input_layout.addWidget(self.send_button, 3)  # 30% of space
-
         game_layout.addLayout(input_layout)
 
-
-
         # Create the command buttons
-
         cmd_layout = QHBoxLayout()
-
         cmd_layout.setSpacing(10)
 
-
-
         button_style = f"""
-
             QPushButton {{
-
                 background-color: {ACCENT_COLOR};
-
                 color: white;
-
                 border-radius: 6px;
-
                 padding: 8px;
-
                 font-weight: bold;
-
             }}
-
             QPushButton:hover {{ background-color: {HIGHLIGHT_COLOR}; }}
-
         """
 
-
-
         self.save_button = QPushButton("Save")
-
         self.save_button.setStyleSheet(button_style)
-
         self.save_button.clicked.connect(self.save_game)
 
-
-
         self.memory_button = QPushButton("Memory")
-
         self.memory_button.setStyleSheet(button_style)
-
         self.memory_button.clicked.connect(self.show_memory)
 
-
-
         self.summary_button = QPushButton("Summary")
-
         self.summary_button.setStyleSheet(button_style)
-
         self.summary_button.clicked.connect(self.show_summary)
 
-
+        # AI Settings button (only add it here, not in add_ai_settings_to_game_tab)
+        self.game_settings_button = QPushButton("AI Settings")
+        self.game_settings_button.setStyleSheet(button_style)
+        self.game_settings_button.clicked.connect(self.show_game_ai_settings)
 
         self.quit_button = QPushButton("Quit")
-
         self.quit_button.setStyleSheet(button_style)
-
         self.quit_button.clicked.connect(self.quit_game)
 
-
-
         cmd_layout.addWidget(self.save_button)
-
         cmd_layout.addWidget(self.memory_button)
-
         cmd_layout.addWidget(self.summary_button)
-
+        cmd_layout.addWidget(self.game_settings_button)
         cmd_layout.addWidget(self.quit_button)
-
-
 
         game_layout.addLayout(cmd_layout)
 
+        # Create the enhanced journal panel
+        self.journal = GameJournal(parent=self, accent_color=DM_NAME_COLOR, highlight_color=HIGHLIGHT_COLOR)
 
-
-        # Create the game status panel
-
-        status_panel = QScrollArea()
-
-        status_panel.setWidgetResizable(True)
-
-        status_panel.setMinimumWidth(280)
-
-        status_panel.setMaximumWidth(350)
-
-        status_panel.setStyleSheet(f"""
-
-            QScrollArea {{ 
-
-                background-color: white;
-
-                border: 1px solid {DM_NAME_COLOR};
-
-                border-radius: 10px;
-
-            }}
-
-        """)
-
-
-
-        status_content = QWidget()
-
-        status_content.setStyleSheet(f"background-color: white; padding: 10px;")
-
-        self.status_layout = QVBoxLayout(status_content)
-
-        self.status_layout.setSpacing(15)  # More space between sections
-
-
-
-        group_box_style = f"""
-
-            QGroupBox {{ 
-
-                background-color: #F8F4FF;
-
-                border: 1px solid {DM_NAME_COLOR}; 
-
-                border-radius: 8px; 
-
-                margin-top: 12px; 
-
-                padding: 10px;
-
-            }}
-
-            QGroupBox::title {{ 
-
-                color: {HIGHLIGHT_COLOR}; 
-
-                subcontrol-origin: margin;
-
-                left: 10px;
-
-                padding: 0 5px;
-
-                font-weight: bold;
-
-            }}
-
-        """
-
-
-
-
-
-        # Game info section
-
-        game_info_group = QGroupBox("Game Info")
-
-        game_info_group.setStyleSheet(group_box_style)
-
-        game_info_layout = QVBoxLayout(game_info_group)
-
-        game_info_layout.setSpacing(8)
-
-
-
-        self.game_title_label = QLabel("Title: ")
-
-        self.game_world_label = QLabel("World: ")
-
-        self.game_location_label = QLabel("Location: ")
-
-
-
-        # Add styling to the labels
-
-        self.game_title_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
-
-        self.game_world_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
-
-        self.game_location_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
-
-
-
-        game_info_layout.addWidget(self.game_title_label)
-
-        game_info_layout.addWidget(self.game_world_label)
-
-        game_info_layout.addWidget(self.game_location_label)
-
-
-
-        # Character info section
-
-        character_info_group = QGroupBox("Character")
-
-        character_info_group.setStyleSheet(group_box_style)
-
-        character_info_layout = QVBoxLayout(character_info_group)
-
-        character_info_layout.setSpacing(8)
-
-
-
-        self.character_name_label = QLabel("Name: ")
-
-        self.character_class_label = QLabel("Class: ")
-
-        self.character_race_label = QLabel("Race: ")
-
-        self.character_health_label = QLabel("Health: ")
-
-
-
-        # Add styling to the labels
-
-        self.character_name_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
-
-        self.character_class_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
-
-        self.character_race_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
-
-        self.character_health_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
-
-
-
-        character_info_layout.addWidget(self.character_name_label)
-
-        character_info_layout.addWidget(self.character_class_label)
-
-        character_info_layout.addWidget(self.character_race_label)
-
-        character_info_layout.addWidget(self.character_health_label)
-
-
-
-        # Quest info section
-
-        quest_info_group = QGroupBox("Current Quest")
-
-        quest_info_group.setStyleSheet(group_box_style)
-
-        quest_info_layout = QVBoxLayout(quest_info_group)
-
-        quest_info_layout.setSpacing(8)
-
-
-
-        self.quest_name_label = QLabel("Name: ")
-
-        self.quest_desc_label = QLabel("Description: ")
-
-        self.quest_desc_label.setWordWrap(True)
-
-
-
-        # Add styling to the labels
-
-        self.quest_name_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
-
-        self.quest_desc_label.setStyleSheet("color: #4A2D7D; font-weight: bold;")
-
-
-
-        quest_info_layout.addWidget(self.quest_name_label)
-
-        quest_info_layout.addWidget(self.quest_desc_label)
-
-
-
-        # NPCs section
-
-        npcs_group = QGroupBox("NPCs Present")
-
-        npcs_group.setStyleSheet(group_box_style)
-
-        npcs_layout = QVBoxLayout(npcs_group)
-
-        npcs_layout.setSpacing(5)
-
-
-
-        self.npcs_list = QListWidget()
-
-        self.npcs_list.setStyleSheet(f"""
-
-            QListWidget {{ 
-
-                background-color: white;
-
-                border: 1px solid {DM_NAME_COLOR};
-
-                border-radius: 5px;
-
-                padding: 5px;
-
-                color: #4A2D7D;  /* Darker text for list items */
-
-            }}
-
-            QListWidget::item {{ padding: 5px; }}
-
-            QListWidget::item:selected {{ 
-
-                background-color: {DM_NAME_COLOR}; 
-
-                color: white; 
-
-            }}
-
-        """)
-
-        npcs_layout.addWidget(self.npcs_list)
-
-
-
-        # Add all sections to the status layout
-
-        self.status_layout.addWidget(game_info_group)
-
-        self.status_layout.addWidget(character_info_group)
-
-        self.status_layout.addWidget(quest_info_group)
-
-        self.status_layout.addWidget(npcs_group)
-
-        self.status_layout.addStretch()
-
-
-
-        status_panel.setWidget(status_content)
-
-        locations_group = QGroupBox("Known Locations")
-        locations_group.setStyleSheet(group_box_style)
-        locations_layout = QVBoxLayout(locations_group)
-        locations_layout.setSpacing(5)
-
-        self.locations_list = QListWidget()
-        self.locations_list.setStyleSheet(f"""
-            QListWidget {{ 
-                background-color: white;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                padding: 5px;
-                color: #4A2D7D;
-            }}
-            QListWidget::item {{ padding: 5px; }}
-            QListWidget::item:selected {{ 
-                background-color: {DM_NAME_COLOR}; 
-                color: white; 
-            }}
-        """)
-        self.locations_list.itemClicked.connect(self.show_location_details)
-        locations_layout.addWidget(self.locations_list)
-
-        # Quests section
-        quests_group = QGroupBox("Active Quests")
-        quests_group.setStyleSheet(group_box_style)
-        quests_layout = QVBoxLayout(quests_group)
-        quests_layout.setSpacing(5)
-
-        self.quests_list = QListWidget()
-        self.quests_list.setStyleSheet(f"""
-            QListWidget {{ 
-                background-color: white;
-                border: 1px solid {DM_NAME_COLOR};
-                border-radius: 5px;
-                padding: 5px;
-                color: #4A2D7D;
-            }}
-            QListWidget::item {{ padding: 5px; }}
-            QListWidget::item:selected {{ 
-                background-color: {DM_NAME_COLOR}; 
-                color: white; 
-            }}
-        """)
-        self.quests_list.itemClicked.connect(self.show_quest_details)
-        quests_layout.addWidget(self.quests_list)
-
-        # Add all sections to the status layout
-        self.status_layout.addWidget(game_info_group)
-        self.status_layout.addWidget(character_info_group)
-        self.status_layout.addWidget(quest_info_group)
-        self.status_layout.addWidget(npcs_group)
-        self.status_layout.addWidget(locations_group)
-        self.status_layout.addWidget(quests_group)
-        self.status_layout.addStretch()
-
-
-
-        # Add the panels to the splitter
-
+        # Add panels to the splitter
         splitter.addWidget(game_panel)
+        splitter.addWidget(self.journal)
 
-        splitter.addWidget(status_panel)
-
-
-
-        # Set the initial sizes
-
-        splitter.setSizes([600, 300])
-
-
+        # Set the initial sizes (60% game panel, 40% journal)
+        splitter.setSizes([600, 400])
 
         # Add the splitter to the layout
-
         layout.addWidget(splitter)
-
-
 
         return tab
 
@@ -3332,7 +2918,7 @@ class LaceAIdventureGUI(QMainWindow):
         self.ai_settings_response_length_value.setText(length_labels[value])
 
     def apply_ai_settings(self):
-        """Apply the current AI settings to the active game"""
+        """Apply the current AI settings to the active game with GPU optimization"""
         # Check if a generation is in progress
         if hasattr(self, 'generation_thread') and self.generation_thread.isRunning():
             QMessageBox.warning(self, "Settings Locked",
@@ -3345,8 +2931,15 @@ class LaceAIdventureGUI(QMainWindow):
         model_name = self.ai_settings_model_combo.currentText()
         temperature = self.ai_settings_temp_slider.value() / 10.0
         top_p = self.ai_settings_top_p_slider.value() / 10.0
-        max_tokens = self.ai_settings_max_tokens_slider.value()  # Updated to use slider
+        max_tokens = self.ai_settings_max_tokens_slider.value()
         response_length = self.ai_settings_response_length_slider.value()
+
+        # Get GPU settings
+        gpu_layers = None
+        if hasattr(self, 'auto_optimize_checkbox') and not self.auto_optimize_checkbox.isChecked():
+            gpu_layers = self.gpu_layers_slider.value()
+        else:
+            gpu_layers = -1  # Use -1 to indicate auto-optimization
 
         # Check if model has changed
         model_changed = model_name != self.game_state['game_info'].get('model_name', 'mistral-small')
@@ -3358,6 +2951,11 @@ class LaceAIdventureGUI(QMainWindow):
         self.game_state['game_info']['max_tokens'] = max_tokens
         self.game_state['game_info']['response_length'] = response_length
 
+        # Store GPU settings if available
+        if hasattr(self, 'auto_optimize_checkbox'):
+            self.game_state['game_info']['gpu_layers'] = gpu_layers
+            self.game_state['game_info']['auto_optimize_gpu'] = self.auto_optimize_checkbox.isChecked()
+
         # Save the game state
         rpg_engine.save_game_state(self.game_state, self.story_name)
 
@@ -3365,19 +2963,36 @@ class LaceAIdventureGUI(QMainWindow):
         if self.model:
             if model_changed:
                 # Create a new model instance if the model name changed
-                self.model.change_model(model_name)
-
-            # Update settings
-            self.model.update_settings(
-                temperature=temperature,
-                top_p=top_p,
-                max_tokens=max_tokens
-            )
+                self.model = rpg_engine.OllamaLLM(
+                    model=model_name,
+                    temperature=temperature,
+                    top_p=top_p,
+                    max_tokens=max_tokens,
+                    gpu_layers=None if gpu_layers == -1 else gpu_layers
+                )
+            else:
+                # Update settings
+                self.model.update_settings(
+                    temperature=temperature,
+                    top_p=top_p,
+                    max_tokens=max_tokens,
+                    gpu_layers=None if gpu_layers == -1 else gpu_layers
+                )
 
         # Show confirmation
         response_length_text = self.ai_settings_response_length_value.text()
+
+        # Include GPU status in the message if available
+        gpu_status_text = ""
+        if hasattr(self, 'auto_optimize_checkbox'):
+            gpu_status = "Auto-optimized" if gpu_layers == -1 else f"{gpu_layers} GPU Layers" if gpu_layers > 0 else "CPU Only"
+            gpu_status_text = f"\nGPU: {gpu_status}"
+
         QMessageBox.information(self, "Settings Applied",
-                                f"AI settings have been updated.\nModel: {model_name}\nTemperature: {temperature:.1f}\nResponse Length: {response_length_text}\nMax Tokens: {max_tokens}")
+                                f"AI settings have been updated.\nModel: {model_name}\n"
+                                f"Temperature: {temperature:.1f}\n"
+                                f"Response Length: {response_length_text}\n"
+                                f"Max Tokens: {max_tokens}{gpu_status_text}")
 
         # Update game display to show notification
         if model_changed:
@@ -4144,403 +3759,361 @@ class LaceAIdventureGUI(QMainWindow):
 
         self.update_game_status()
 
-
-
-    def handle_initial_response(self, initial_prompt, response):
-
-        """Handle the initial response from the model"""
-
-        # Add the initial prompt and response to conversation history
-
-        self.game_state['conversation_history'][0]['exchanges'].append({
-
-            "speaker": "Player",
-
-            "text": initial_prompt
-
-        })
-
-        self.game_state['conversation_history'][0]['exchanges'].append({
-
-            "speaker": "DM",
-
-            "text": response
-
-        })
-
-
-
-        # Add initial narrative memory
-
-        initial_memory, _ = rpg_engine.extract_memory_updates(
-
-            initial_prompt,
-
-            response,
-
-            self.game_state['narrative_memory'],
-
-            self.model,
-
-            self.game_state['game_info']['plot_pace']
-
-        )
-
-
-
-        # Update memory
-
-        for category, items in initial_memory.items():
-
-            if category not in self.game_state['narrative_memory']:
-
-                self.game_state['narrative_memory'][category] = []
-
-            self.game_state['narrative_memory'][category].extend(items)
-
-
-
-        # Save the initial game state
-
-        rpg_engine.save_game_state(self.game_state, self.story_name)
-
-
-
-        # Enable the input field
-
-        self.input_field.setEnabled(True)
-
-        self.send_button.setEnabled(True)
-
-        self.input_field.setFocus()
-
-
-
-    def load_story(self, file_name):
-
-        """Load a story from a file with AI settings support"""
-
-        # Load the game state
-
-        self.game_state = rpg_engine.load_game_state(file_name)
-
-
-
+    def process_and_update_characters(self):
+        """Process narrative memory and text to ensure characters are properly added"""
         if not self.game_state:
-
-            QMessageBox.warning(self, "Error", "Failed to load the story. The save file might be corrupted.")
-
             return
 
+        new_characters_added = False
 
-
-        self.story_name = self.game_state['game_info']['title']
-
-
-
-        # Add AI settings if not present (for backwards compatibility)
-
-        if 'temperature' not in self.game_state['game_info']:
-
-            self.game_state['game_info']['temperature'] = 0.7
-
-
-
-        if 'top_p' not in self.game_state['game_info']:
-
-            self.game_state['game_info']['top_p'] = 0.9
-
-
-
-        if 'max_tokens' not in self.game_state['game_info']:
-
-            self.game_state['game_info']['max_tokens'] = 2048
-
-
-
-        # Initialize the model with settings
-
-        model_name = self.game_state["game_info"].get("model_name", "mistral-small")
-
-        self.model = rpg_engine.OllamaLLM(
-
-            model=model_name,
-
-            temperature=self.game_state['game_info']['temperature'],
-
-            top_p=self.game_state['game_info']['top_p'],
-
-            max_tokens=self.game_state['game_info']['max_tokens']
-
-        )
-
-
-
-        # Check if plot pacing exists, add if not (for backwards compatibility)
-
-        if 'plot_pace' not in self.game_state['game_info']:
-
-            pace_dialog = QDialog(self)
-
-            pace_dialog.setWindowTitle("Select Plot Pacing")
-
-            pace_layout = QVBoxLayout(pace_dialog)
-
-
-
-            pace_label = QLabel("This story doesn't have plot pacing set. Please choose one:")
-
-            pace_layout.addWidget(pace_label)
-
-
-
-            pace_combo = QComboBox()
-
-            pace_combo.addItems(["Fast-paced", "Balanced", "Slice-of-life"])
-
-            pace_layout.addWidget(pace_combo)
-
-
-
-            button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
-
-            button_box.accepted.connect(pace_dialog.accept)
-
-            pace_layout.addWidget(button_box)
-
-
-
-            if pace_dialog.exec() == QDialog.DialogCode.Accepted:
-
-                self.game_state['game_info']['plot_pace'] = pace_combo.currentText()
-
-
-
-        # Check if rating exists, add if not (for backwards compatibility)
-
-        if 'rating' not in self.game_state['game_info']:
-
-            rating_dialog = QDialog(self)
-
-            rating_dialog.setWindowTitle("Select Content Rating")
-
-            rating_layout = QVBoxLayout(rating_dialog)
-
-
-
-            rating_label = QLabel("This story doesn't have a content rating set. Please choose one:")
-
-            rating_layout.addWidget(rating_label)
-
-
-
-            rating_combo = QComboBox()
-
-            rating_combo.addItems(["E - Family Friendly", "T - Teen", "M - Mature"])
-
-            rating_layout.addWidget(rating_combo)
-
-
-
-            button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
-
-            button_box.accepted.connect(rating_dialog.accept)
-
-            rating_layout.addWidget(button_box)
-
-
-
-            if rating_dialog.exec() == QDialog.DialogCode.Accepted:
-
-                rating_text = rating_combo.currentText()
-
-                if "E" in rating_text:
-
-                    self.game_state['game_info']['rating'] = "E"
-
-                elif "T" in rating_text:
-
-                    self.game_state['game_info']['rating'] = "T"
-
-                elif "M" in rating_text:
-
-                    self.game_state['game_info']['rating'] = "M"
-
-
-
-        # Check if narrative memory exists, add if not (for backwards compatibility)
-
-        if 'narrative_memory' not in self.game_state:
-
-            self.game_state['narrative_memory'] = {
-
-                "world_facts": [],
-
-                "character_development": [],
-
-                "relationships": [],
-
-                "plot_developments": [],
-
-                "player_decisions": [],
-
-                "environment_details": [],
-
-                "conversation_details": [],
-
-                "new_npcs": [],
-
-                "new_locations": [],
-
-                "new_items": [],
-
-                "new_quests": []
-
-            }
-
-
-
-            # Rebuild narrative memory from conversation history
-
-            self.text_display.append_system_message("Rebuilding narrative memory from history...")
-
-
-
-            all_exchanges = []
-
-            for session in self.game_state['conversation_history']:
-
-                all_exchanges.extend(session['exchanges'])
-
-
-
-            # Process exchanges in pairs
-
-            for i in range(0, len(all_exchanges), 2):
-
-                if i + 1 < len(all_exchanges):
-
-                    player_input = all_exchanges[i]['text']
-
-                    dm_response = all_exchanges[i + 1]['text']
-
-
-
-                    # Extract memory updates
-
-                    memory_updates, _ = rpg_engine.extract_memory_updates(
-
-                        player_input,
-
-                        dm_response,
-
-                        self.game_state['narrative_memory'],
-
-                        self.model,
-
-                        self.game_state['game_info'].get('plot_pace', 'Balanced')
-
-                    )
-
-
-
-                    # Add memory items
-
-                    for category, items in memory_updates.items():
-
-                        if category not in self.game_state['narrative_memory']:
-
-                            self.game_state['narrative_memory'][category] = []
-
-                        for item in items:
-
-                            if item not in self.game_state['narrative_memory'][category]:
-
-                                self.game_state['narrative_memory'][category].append(item)
-
-
-
-        # Add new memory categories if missing (for backwards compatibility)
-
-        for category in ['environment_details', 'conversation_details',
-
-                         'new_npcs', 'new_locations', 'new_items', 'new_quests']:
-
-            if category not in self.game_state['narrative_memory']:
-
-                self.game_state['narrative_memory'][category] = []
-
-
-
-        # Clear the text display
-
-        self.text_display.clear()
-
-
-
-        # Display the conversation history
-
-        self.text_display.append_system_message(f"Loaded story: {self.story_name}")
-
-        self.text_display.append_system_message(
-
-            f"Using AI model: {model_name} (Temperature: {self.game_state['game_info']['temperature']:.1f})")
-
-
-
+        # Process direct "New Character:" annotations from the AI
         all_exchanges = []
-
         for session in self.game_state['conversation_history']:
-
             all_exchanges.extend(session['exchanges'])
 
+        # Check the most recent 5 exchanges for "New Character:" patterns
+        for exchange in all_exchanges[-5:]:
+            if exchange['speaker'] == "DM":
+                # Look for "New Character:" patterns
+                new_char_matches = re.findall(r"New Character:\s*\*\*\s*(.*?)(?:\.|$)", exchange['text'], re.MULTILINE)
+                for match in new_char_matches:
+                    # Extract character name
+                    name_match = re.search(r"([A-Z][a-zA-Z\s\-'\"]+)(?:\s+–|\s+-|,|\s+a|\s+the)", match)
+                    if name_match:
+                        character_name = name_match.group(1).strip()
+                        # Look for details
+                        description = match
 
+                        # Check if this character already exists
+                        char_exists = False
+                        for existing_npc in self.game_state['npcs'].values():
+                            if character_name.lower() in existing_npc['name'].lower():
+                                char_exists = True
+                                break
 
-        # Display the last few exchanges
+                        # If not found, add new character
+                        if not char_exists:
+                            npc_id = "npc_" + "".join([c.lower() if c.isalnum() else "_" for c in character_name])
 
-        num_exchanges = min(10, len(all_exchanges))
+                            # Build character profile
+                            self.game_state['npcs'][npc_id] = {
+                                "name": character_name,
+                                "race": "Human",  # Default
+                                "description": description,
+                                "location": self.game_state['game_info']['current_location'],
+                                "disposition": "neutral",
+                                "motivation": "unknown",
+                                "knowledge": [],
+                                "relationships": {},
+                                "dialogue_style": "speaks normally"
+                            }
 
-        for i in range(len(all_exchanges) - num_exchanges, len(all_exchanges)):
+                            # Add to current location
+                            current_loc = self.game_state['game_info']['current_location']
+                            if npc_id not in self.game_state['locations'][current_loc]['npcs_present']:
+                                self.game_state['locations'][current_loc]['npcs_present'].append(npc_id)
 
-            exchange = all_exchanges[i]
+                            new_characters_added = True
+                            print(f"Added character from DM text: {character_name}")
 
-            if exchange['speaker'] == "Player":
+        # Also check memory entries
+        for npc_entry in self.game_state['narrative_memory'].get('new_npcs', []):
+            # Try to extract character name
+            name_match = re.search(
+                r"(?:new character|newcomer|stranger|met|named|called) ([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)",
+                npc_entry, re.IGNORECASE)
 
-                self.text_display.append_player_message(exchange['text'])
+            if name_match:
+                npc_name = name_match.group(1).strip()
 
-            else:
+                # Check if this NPC already exists
+                npc_exists = False
+                for existing_npc in self.game_state['npcs'].values():
+                    if existing_npc['name'].lower() == npc_name.lower():
+                        npc_exists = True
+                        break
 
-                self.text_display.append_dm_message(exchange['text'])
+                # If not found, add a new NPC entry
+                if not npc_exists:
+                    npc_id = "npc_" + "".join([c.lower() if c.isalnum() else "_" for c in npc_name])
 
+                    self.game_state['npcs'][npc_id] = {
+                        "name": npc_name,
+                        "race": "Human",  # Default values
+                        "description": f"A character mentioned in the story. Details: {npc_entry}",
+                        "location": self.game_state['game_info']['current_location'],
+                        "disposition": "neutral",
+                        "motivation": "unknown",
+                        "knowledge": [],
+                        "relationships": {},
+                        "dialogue_style": "speaks normally"
+                    }
 
+                    # Add to current location
+                    current_loc = self.game_state['game_info']['current_location']
+                    if npc_id not in self.game_state['locations'][current_loc]['npcs_present']:
+                        self.game_state['locations'][current_loc]['npcs_present'].append(npc_id)
 
-        # Update the game status panel
+                    new_characters_added = True
+                    print(f"Added character from memory: {npc_name}")
 
+        # If new characters were added, save the game state
+        if new_characters_added:
+            # Save the game state
+            rpg_engine.save_game_state(self.game_state, self.story_name)
+
+            # Force update the journal
+            if hasattr(self, 'journal') and self.journal is not None:
+                self.journal.update_journal(self.game_state, detect_changes=True)
+
+                # Focus on the Characters tab
+                for i in range(self.journal.count()):
+                    if self.journal.tabText(i) == "Characters":
+                        self.journal.setCurrentIndex(i)
+                        break
+
+    def handle_initial_response(self, initial_prompt, response):
+        """Handle the initial response from the model with journal initialization"""
+        # Add the initial prompt and response to conversation history
+        self.game_state['conversation_history'][0]['exchanges'].append({
+            "speaker": "Player",
+            "text": initial_prompt
+        })
+        self.game_state['conversation_history'][0]['exchanges'].append({
+            "speaker": "DM",
+            "text": response
+        })
+
+        # Add initial narrative memory
+        initial_memory, _ = rpg_engine.extract_memory_updates(
+            initial_prompt,
+            response,
+            self.game_state['narrative_memory'],
+            self.model,
+            self.game_state['game_info']['plot_pace']
+        )
+
+        # Update memory
+        for category, items in initial_memory.items():
+            if category not in self.game_state['narrative_memory']:
+                self.game_state['narrative_memory'][category] = []
+            self.game_state['narrative_memory'][category].extend(items)
+
+        # Apply dynamic element creation
+        self.game_state = rpg_engine.update_dynamic_elements(self.game_state, initial_memory)
+
+        # Save the initial game state
+        rpg_engine.save_game_state(self.game_state, self.story_name)
+
+        # Initialize the journal with the game state
         self.update_game_status()
 
-
-
-        # Update AI settings tab
-
-        self.update_ai_settings_state()
-
-
-
-        # Show the game tab
-
-        self.tabs.setTabVisible(1, True)
-
-        self.tabs.setCurrentIndex(1)
-
-
-
         # Enable the input field
-
         self.input_field.setEnabled(True)
-
         self.send_button.setEnabled(True)
-
         self.input_field.setFocus()
+
+    def load_story(self, file_name):
+        """Load a story from a file with error handling"""
+        try:
+            # Load the game state
+            self.game_state = rpg_engine.load_game_state(file_name)
+
+            if not self.game_state:
+                QMessageBox.warning(self, "Error", "Failed to load the story. The save file might be corrupted.")
+                return
+
+            self.story_name = self.game_state['game_info']['title']
+
+            # Ensure important_updates exists
+            if 'important_updates' not in self.game_state:
+                self.game_state['important_updates'] = []
+
+            # Add AI settings if not present (for backwards compatibility)
+            if 'temperature' not in self.game_state['game_info']:
+                self.game_state['game_info']['temperature'] = 0.7
+
+            if 'top_p' not in self.game_state['game_info']:
+                self.game_state['game_info']['top_p'] = 0.9
+
+            if 'max_tokens' not in self.game_state['game_info']:
+                self.game_state['game_info']['max_tokens'] = 2048
+
+            # Add GPU settings if not present (they won't be used until we update OllamaLLM)
+            if 'gpu_layers' not in self.game_state['game_info']:
+                self.game_state['game_info']['gpu_layers'] = -1  # -1 means auto-optimize
+
+            if 'auto_optimize_gpu' not in self.game_state['game_info']:
+                self.game_state['game_info']['auto_optimize_gpu'] = True
+
+            # Initialize the model with settings but without gpu_layers for now
+            model_name = self.game_state["game_info"].get("model_name", "mistral-small")
+
+            # Create model without gpu_layers parameter
+            self.model = rpg_engine.OllamaLLM(
+                model=model_name,
+                temperature=self.game_state['game_info']['temperature'],
+                top_p=self.game_state['game_info']['top_p'],
+                max_tokens=self.game_state['game_info']['max_tokens']
+            )
+
+            # Check if plot pacing exists, add if not (for backwards compatibility)
+            if 'plot_pace' not in self.game_state['game_info']:
+                pace_dialog = QDialog(self)
+                pace_dialog.setWindowTitle("Select Plot Pacing")
+                pace_layout = QVBoxLayout(pace_dialog)
+
+                pace_label = QLabel("This story doesn't have plot pacing set. Please choose one:")
+                pace_layout.addWidget(pace_label)
+
+                pace_combo = QComboBox()
+                pace_combo.addItems(["Fast-paced", "Balanced", "Slice-of-life"])
+                pace_layout.addWidget(pace_combo)
+
+                button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+                button_box.accepted.connect(pace_dialog.accept)
+                pace_layout.addWidget(button_box)
+
+                if pace_dialog.exec() == QDialog.DialogCode.Accepted:
+                    self.game_state['game_info']['plot_pace'] = pace_combo.currentText()
+
+            # Check if rating exists, add if not (for backwards compatibility)
+            if 'rating' not in self.game_state['game_info']:
+                rating_dialog = QDialog(self)
+                rating_dialog.setWindowTitle("Select Content Rating")
+                rating_layout = QVBoxLayout(rating_dialog)
+
+                rating_label = QLabel("This story doesn't have a content rating set. Please choose one:")
+                rating_layout.addWidget(rating_label)
+
+                rating_combo = QComboBox()
+                rating_combo.addItems(["E - Family Friendly", "T - Teen", "M - Mature"])
+                rating_layout.addWidget(rating_combo)
+
+                button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+                button_box.accepted.connect(rating_dialog.accept)
+                rating_layout.addWidget(button_box)
+
+                if rating_dialog.exec() == QDialog.DialogCode.Accepted:
+                    rating_text = rating_combo.currentText()
+                    if "E" in rating_text:
+                        self.game_state['game_info']['rating'] = "E"
+                    elif "T" in rating_text:
+                        self.game_state['game_info']['rating'] = "T"
+                    elif "M" in rating_text:
+                        self.game_state['game_info']['rating'] = "M"
+
+            # Check if narrative memory exists, add if not (for backwards compatibility)
+            if 'narrative_memory' not in self.game_state:
+                self.game_state['narrative_memory'] = {
+                    "world_facts": [],
+                    "character_development": [],
+                    "relationships": [],
+                    "plot_developments": [],
+                    "player_decisions": [],
+                    "environment_details": [],
+                    "conversation_details": [],
+                    "new_npcs": [],
+                    "new_locations": [],
+                    "new_items": [],
+                    "new_quests": []
+                }
+
+                # Rebuild narrative memory from conversation history
+                self.text_display.append_system_message("Rebuilding narrative memory from history...")
+
+                all_exchanges = []
+                for session in self.game_state['conversation_history']:
+                    all_exchanges.extend(session['exchanges'])
+
+                # Process exchanges in pairs
+                for i in range(0, len(all_exchanges), 2):
+                    if i + 1 < len(all_exchanges):
+                        player_input = all_exchanges[i]['text']
+                        dm_response = all_exchanges[i + 1]['text']
+
+                        # Extract memory updates
+                        memory_updates, _ = rpg_engine.extract_memory_updates(
+                            player_input,
+                            dm_response,
+                            self.game_state['narrative_memory'],
+                            self.model,
+                            self.game_state['game_info'].get('plot_pace', 'Balanced')
+                        )
+
+                        # Add memory items
+                        for category, items in memory_updates.items():
+                            if category not in self.game_state['narrative_memory']:
+                                self.game_state['narrative_memory'][category] = []
+                            for item in items:
+                                if item not in self.game_state['narrative_memory'][category]:
+                                    self.game_state['narrative_memory'][category].append(item)
+
+                        # Update dynamic elements
+                        self.game_state = rpg_engine.update_dynamic_elements(self.game_state, memory_updates)
+
+            # Add new memory categories if missing (for backwards compatibility)
+            for category in ['environment_details', 'conversation_details',
+                             'new_npcs', 'new_locations', 'new_items', 'new_quests']:
+                if category not in self.game_state['narrative_memory']:
+                    self.game_state['narrative_memory'][category] = []
+
+            # Clear the text display
+            self.text_display.clear()
+
+            # Display the conversation history
+            self.text_display.append_system_message(f"Loaded story: {self.story_name}")
+            self.text_display.append_system_message(
+                f"Using AI model: {model_name} (Temperature: {self.game_state['game_info']['temperature']:.1f})")
+
+            all_exchanges = []
+            for session in self.game_state['conversation_history']:
+                all_exchanges.extend(session['exchanges'])
+
+            # Display the last few exchanges
+            num_exchanges = min(10, len(all_exchanges))
+            for i in range(len(all_exchanges) - num_exchanges, len(all_exchanges)):
+                exchange = all_exchanges[i]
+                if exchange['speaker'] == "Player":
+                    self.text_display.append_player_message(exchange['text'])
+                else:
+                    self.text_display.append_dm_message(exchange['text'])
+
+            # Show the game tab first to prevent GUI issues
+            self.tabs.setTabVisible(1, True)
+            self.tabs.setCurrentIndex(1)
+
+            # Enable the input field
+            self.input_field.setEnabled(True)
+            self.send_button.setEnabled(True)
+            self.input_field.setFocus()
+
+            # Update AI settings tab
+            self.update_ai_settings_state()
+
+            # Initialize the journal if it doesn't exist yet
+            if not hasattr(self, 'journal') or self.journal is None:
+                self.journal = GameJournal(parent=self, accent_color=DM_NAME_COLOR, highlight_color=HIGHLIGHT_COLOR)
+
+            # Process characters to ensure they appear in the Characters tab
+            self.process_and_update_characters()
+
+            # Update the journal with a safety wrapper
+            try:
+                # Update the journal with the current game state, without detecting changes
+                self.journal.update_journal(self.game_state, detect_changes=False)
+            except Exception as journal_error:
+                print(f"Error updating journal: {journal_error}")
+                import traceback
+                traceback.print_exc()
+
+            return True
+        except Exception as e:
+            print(f"Error loading story: {e}")
+            import traceback
+            traceback.print_exc()
+            QMessageBox.critical(self, "Error", f"Failed to load story: {str(e)}")
+            return False
 
     def process_input(self):
         """Process the player input"""
@@ -4603,17 +4176,18 @@ class LaceAIdventureGUI(QMainWindow):
         self.generation_thread.start()
 
     def finalize_response(self, player_input, response):
-        """Finalize the response from the model with immersion protection"""
+        """Finalize the response from the model with immersion protection and character detection"""
         self.generation_in_progress = False
+
         # Check for out-of-character AI responses
         ai_phrases = [
             "as an ai", "i cannot", "i'm not able to", "i apologize",
             "ai model", "language model", "i'm sorry", "i can't create",
             "i cannot generate", "against my ethical guidelines",
-            "Error:", "DM:", "Player:"
+            "Error:", "Player:"
         ]
 
-        # Filter out non-immersive responses
+        # Filter out non-immersive responses but preserve DM: for character detection
         filtered_response = response
         for phrase in ai_phrases:
             if phrase in filtered_response.lower():
@@ -4635,7 +4209,10 @@ class LaceAIdventureGUI(QMainWindow):
         self.update_thread.finished.connect(self.update_thread.deleteLater)
         self.update_thread.finished.connect(self.update_worker.deleteLater)
 
-        # Enable the input field immediately so the user can type while processing happens
+        # Process characters immediately
+        self.process_and_update_characters()
+
+        # Enable the input field
         self.input_field.setEnabled(True)
         self.send_button.setEnabled(True)
         self.input_field.setFocus()
@@ -4643,19 +4220,57 @@ class LaceAIdventureGUI(QMainWindow):
         # Start the thread
         self.update_thread.start()
 
+    def extract_characters_from_recent_responses(self):
+        """Extract character information from recent DM responses"""
+        if not self.game_state:
+            return []
+
+        new_characters = []
+
+        # Get the last 5 DM responses
+        recent_responses = []
+        for session in self.game_state['conversation_history']:
+            for exchange in session['exchanges']:
+                if exchange['speaker'] == "DM":
+                    recent_responses.append(exchange['text'])
+
+        # Take the last 5 responses only
+        recent_responses = recent_responses[-5:]
+
+        # Look for character mentions in various formats
+        for response in recent_responses:
+            # Format 1: "New Character: ** Name - description"
+            char_matches = re.findall(r"New Character:\s*\*\*\s*(.*?)(?:\.|$)", response, re.MULTILINE)
+            for match in char_matches:
+                new_characters.append(match)
+
+            # Format 2: "Named characters in prose"
+            prose_matches = re.findall(
+                r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)(?:,|\s+the|\s+a|\s+an|\s+said|\s+asked|\s+replied)', response)
+            for match in prose_matches:
+                if len(match) > 3 and match not in ["The", "She", "He", "They", "You", "DM"]:
+                    new_characters.append(match)
+
+        return new_characters
+
     def handle_game_state_update(self, updated_game_state, important_updates):
-        """Handle the completion of game state updates"""
+        """Handle the completion of game state updates with journal refreshing"""
         # Update the game state reference
         self.game_state = updated_game_state
 
-        # Update the game status panel
+        # Process characters immediately
+        self.process_and_update_characters()
+
+        # Update the game status panel (now uses the journal)
         self.update_game_status()
 
         # Show any important updates if needed
-        # Uncomment if you want to notify the player of important events
-        # if important_updates:
-        #    for update in important_updates:
-        #        self.text_display.append_system_message(update)
+        if 'important_updates' in self.game_state and self.game_state['important_updates']:
+            for update in self.game_state['important_updates']:
+                self.text_display.append_system_message(update)
+
+            # Clear important updates after displaying them
+            self.game_state['important_updates'] = []
 
     def update_game_state(self, player_input, dm_response):
         """Update the game state based on player input and DM response"""
@@ -4715,114 +4330,34 @@ class LaceAIdventureGUI(QMainWindow):
         self.update_game_status()
 
     def update_game_status(self):
-        """Update the game status panel with clickable elements"""
+        """Update the game status using the enhanced journal with character processing"""
         if not self.game_state:
             return
 
-        # Update game info
-        self.game_title_label.setText(f"Title: {self.game_state['game_info']['title']}")
-        self.game_world_label.setText(f"World: {self.game_state['game_info']['world_name']}")
+        try:
+            # Process characters first to ensure they appear in the Characters tab
+            self.process_and_update_characters()
 
-        current_loc_id = self.game_state['game_info']['current_location']
-        self.game_location_label.setText(f"Location: {self.game_state['locations'][current_loc_id]['name']}")
+            # Make sure important_updates exists
+            if 'important_updates' not in self.game_state:
+                self.game_state['important_updates'] = []
 
-        # Update character info
-        pc_id = list(self.game_state['player_characters'].keys())[0]
-        pc = self.game_state['player_characters'][pc_id]
+            # Update the journal if it exists
+            if hasattr(self, 'journal') and self.journal is not None:
+                self.journal.update_journal(self.game_state, detect_changes=True)
 
-        self.character_name_label.setText(f"Name: {pc['name']}")
-        self.character_class_label.setText(f"Class: {pc['class']}")
-        self.character_race_label.setText(f"Race: {pc['race']}")
-        self.character_health_label.setText(f"Health: {pc['health']}/{pc['max_health']}")
+            # Display important updates
+            if self.game_state['important_updates']:
+                for update in self.game_state['important_updates']:
+                    self.text_display.append_system_message(update)
 
-        # Update quest info
-        current_quest_id = self.game_state['game_info']['current_quest']
-        if current_quest_id and current_quest_id in self.game_state['quests']:
-            quest = self.game_state['quests'][current_quest_id]
-            self.quest_name_label.setText(f"Name: {quest['name']}")
-            self.quest_desc_label.setText(f"Description: {quest['description']}")
+                # Clear after displaying
+                self.game_state['important_updates'] = []
 
-        # Update NPCs list
-        self.npcs_list.clear()
-        location = self.game_state['locations'][current_loc_id]
-        for npc_id in location['npcs_present']:
-            npc = self.game_state['npcs'][npc_id]
-            self.npcs_list.addItem(f"{npc['name']} - {npc['disposition']}")
-
-        # Update locations list
-        self.locations_list.clear()
-        for loc_id, loc in self.game_state['locations'].items():
-            if loc['visited']:
-                self.locations_list.addItem(loc['name'])
-
-        # Update quests list
-        self.quests_list.clear()
-        pc = self.game_state['player_characters'][pc_id]
-        for quest_id in pc['quests']:
-            if quest_id in self.game_state['quests']:
-                quest = self.game_state['quests'][quest_id]
-                status_icon = "✓" if quest['status'] == "completed" else "⚠" if quest['status'] == "active" else "?"
-                self.quests_list.addItem(f"{status_icon} {quest['name']}")
-
-
-
-        # Update game info
-
-        self.game_title_label.setText(f"Title: {self.game_state['game_info']['title']}")
-
-        self.game_world_label.setText(f"World: {self.game_state['game_info']['world_name']}")
-
-
-
-        current_loc_id = self.game_state['game_info']['current_location']
-
-        self.game_location_label.setText(f"Location: {self.game_state['locations'][current_loc_id]['name']}")
-
-
-
-        # Update character info
-
-        pc_id = list(self.game_state['player_characters'].keys())[0]
-
-        pc = self.game_state['player_characters'][pc_id]
-
-
-
-        self.character_name_label.setText(f"Name: {pc['name']}")
-
-        self.character_class_label.setText(f"Class: {pc['class']}")
-
-        self.character_race_label.setText(f"Race: {pc['race']}")
-
-        self.character_health_label.setText(f"Health: {pc['health']}/{pc['max_health']}")
-
-
-
-        # Update quest info
-
-        current_quest_id = self.game_state['game_info']['current_quest']
-
-        if current_quest_id and current_quest_id in self.game_state['quests']:
-
-            quest = self.game_state['quests'][current_quest_id]
-
-            self.quest_name_label.setText(f"Name: {quest['name']}")
-
-            self.quest_desc_label.setText(f"Description: {quest['description']}")
-
-
-
-        # Update NPCs list
-
-        self.npcs_list.clear()
-
-        location = self.game_state['locations'][current_loc_id]
-
-        for npc_id in location['npcs_present']:
-
-            npc = self.game_state['npcs'][npc_id]
-
-            self.npcs_list.addItem(f"{npc['name']} - {npc['disposition']}")
+        except Exception as e:
+            print(f"Error updating game status: {e}")
+            import traceback
+            traceback.print_exc()
 
     def show_npc_details(self, item):
         """Show detailed information about the selected NPC"""
