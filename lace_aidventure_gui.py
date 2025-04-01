@@ -258,12 +258,40 @@ class ModelGenerationThread(QThread):
                     break
 
     def run(self):
-        """Run the model generation with anti-repetition mechanisms"""
+        """Run the model generation with dynamic quest handling"""
         try:
             # Get response length from game state if available
             response_length = 3  # Default medium
             if 'game_info' in self.prompt_vars and 'response_length' in self.prompt_vars['game_info']:
                 response_length = self.prompt_vars['game_info']['response_length']
+
+            # Dynamically gather active quests
+            active_quests = []
+            game_state = None
+
+            # Extract game state if available
+            if 'game_state' in self.prompt_vars:
+                game_state = self.prompt_vars['game_state']
+            elif hasattr(self, 'game_state'):
+                game_state = self.game_state
+
+            if game_state and 'quests' in game_state:
+                # First, get the current main quest if it exists
+                current_quest_id = game_state['game_info'].get('current_quest')
+                if current_quest_id and current_quest_id in game_state['quests']:
+                    current_quest = game_state['quests'][current_quest_id]
+                    if current_quest['status'] == 'active':
+                        active_quests.append(f"- {current_quest['name']} (MAIN): {current_quest['description']}")
+
+                # Then add other active quests
+                pc_id = list(game_state['player_characters'].keys())[0]
+                for quest_id in game_state['player_characters'][pc_id]['quests']:
+                    if quest_id in game_state['quests'] and game_state['quests'][quest_id][
+                        'status'] == 'active' and quest_id != current_quest_id:
+                        quest = game_state['quests'][quest_id]
+                        active_quests.append(f"- {quest['name']}: {quest['description']}")
+
+            active_quests_text = "\n".join(active_quests) if active_quests else "None"
 
             # Define response length instructions
             response_length_instructions = {
@@ -274,51 +302,21 @@ class ModelGenerationThread(QThread):
                 5: "VERY DETAILED: Be highly detailed and descriptive in responses, 11+ sentences. Use vivid, immersive descriptions and elaborate on all sensory details."
             }
 
-            # Format the basic prompt with response length instructions
-            formatted_prompt = f"""
-    You are an experienced Dungeon Master for a {self.prompt_vars['genre']} RPG set in {self.prompt_vars['world_name']}. Your role is to:
+            # Format the prompt with dynamic quest information
+            formatted_prompt = rpg_engine.dm_template.format(
+                genre=self.prompt_vars['genre'],
+                world_name=self.prompt_vars['world_name'],
+                setting_description=self.prompt_vars['setting_description'],
+                tone=self.prompt_vars['tone'],
+                rating=self.prompt_vars['rating'],
+                plot_pace=self.prompt_vars['plot_pace'],
+                response_length_instruction=response_length_instructions.get(response_length,
+                                                                             response_length_instructions[3]),
+                active_quests=active_quests_text,
+                context=self.prompt_vars['context'],
+                question=self.prompt_vars['question']
+            )
 
-    1. Create an immersive world that maintains cohesiveness and coherence
-    2. Portray NPCs with consistent personalities, goals, and knowledge
-    3. Present appropriate challenges and opportunities for character development
-    4. Maintain narrative continuity and remember details from previous sessions
-    5. Apply game rules fairly while prioritizing storytelling and player enjoyment
-    6. Adapt the story based on player choices to create a truly interactive experience
-    7. Always speak in character or as a narrator, never interject from the role of an AI Language Model or with your own opinions
-
-    CRITICAL OUTPUT REQUIREMENTS:
-    - {response_length_instructions.get(response_length, response_length_instructions[3])}
-    - VARIETY: Never use similar sentence structures back-to-back
-    - PRECISION: Use specific, brief details rather than general description or long drawn out paragraphs
-    - UNIQUENESS: Avoid reusing phrases, descriptions, or scene transitions
-    - FREEDOM: Only give the player specific choices when absolutely necessary, otherwise always simply ask "What will you do?" to end your output
-    - GAMEPLAY: The player character should never speak on their own, unless the user tells them to in their responses. You will never generate dialogue from their perspective
-    - ROLE CONSISTENCY: Always respond in role as the Dungeon Master or as an NPC character when speaking. Never break character to respond as an AI model. Never mention AI models, prompts, or language processing. Stay completely immersed in the fantasy role.
-    - FORBIDDEN PHRASES: Never use phrases like "I can't create content that is...", "As an AI, I...", "I'm sorry, but I cannot...", or any similar statements that break immersion.
-    - NARRATIVE VOICE: When describing scenes, use the voice of a storyteller. When NPCs speak, use their established personalities and dialogue patterns.
-    - REPETITION PREVENTION: Don't output anything until you've ensured that the entirety of your output is concise and lacking repetition
-    - FINISHING OUTPUT: Always end your output, no matter what it is, with "What will you do?"
-
-    CONTENT RATING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['rating']}" RATING:
-    - E rating: Keep content family-friendly. Avoid graphic violence, frightening scenarios, sexual content, and strong language.
-    - T rating: Moderate content is acceptable. Some violence, dark themes, mild language, and light romantic implications allowed, but nothing explicit or graphic.
-    - M rating: Mature content is permitted. You may include graphic violence, sexual themes, intense scenarios, and strong language as appropriate to the story.
-
-    PLOT PACING GUIDELINES - THIS STORY HAS A "{self.prompt_vars['plot_pace']}" PACING:
-    - Fast-paced: Maintain steady forward momentum with regular plot developments and challenges. Focus primarily on action, goals, and advancing the main storyline. Character development should happen through significant events rather than quiet moments. Keep the story moving forward with new developments in most scenes.
-    - Balanced: Create a rhythm alternating between plot advancement and character moments. Allow time for reflection and relationship development between significant story beats. Mix everyday interactions with moderate plot advancement. Ensure characters have time to process events before introducing new major developments.
-    - Slice-of-life: Deliberately slow down plot progression in favor of everyday moments and mundane interactions. Focus on character relationships, personal growth, and daily activities rather than dramatic events. Allow extended periods where characters simply live their lives, with minimal story progression. Prioritize small, meaningful character moments and ordinary situations. Major plot developments should be rare and spaced far apart, with emphasis on how characters experience their everyday world.
-
-    DYNAMIC WORLD CREATION:
-    You are expected to actively create new elements to build a rich, evolving world.
-
-    The adventure takes place in a {self.prompt_vars['setting_description']}. The tone is {self.prompt_vars['tone']}.
-
-    Current game state:
-    {self.prompt_vars['context']}
-
-    Player: {self.prompt_vars['question']}
-    """
             # Enhance the prompt with anti-repetition instructions
             if self.last_response:
                 formatted_prompt = enhance_prompt_for_variety(formatted_prompt, self.last_response)
@@ -334,8 +332,8 @@ class ModelGenerationThread(QThread):
             original_temp = self.model.temperature
             if repetition_score > 0.5:
                 adjusted_temp = adjust_params_for_variety(repetition_score,
-                                                               base_temp=original_temp,
-                                                               max_temp=min(original_temp + 0.5, 1.2))
+                                                          base_temp=original_temp,
+                                                          max_temp=min(original_temp + 0.5, 1.2))
                 print(f"Increasing temperature from {original_temp} to {adjusted_temp} due to repetition")
                 self.model.update_settings(temperature=adjusted_temp)
 
@@ -362,9 +360,43 @@ class ModelGenerationThread(QThread):
             error_msg = f"\nError generating response: {str(e)}"
             print(error_msg)
             self.text_generated.emit(error_msg)
+            import traceback
+            traceback.print_exc()
 
         # Signal that generation is complete
         self.generation_complete.emit(self.full_response)
+
+    def extract_key_phrases(self, text, num_phrases=3):
+        """Extract key phrases from text to avoid repetition"""
+        # Split text into sentences
+        sentences = re.split(r'[.!?]+', text)
+
+        # Remove short or empty sentences
+        sentences = [s.strip() for s in sentences if len(s.strip()) > 10]
+
+        if not sentences:
+            return []
+
+        # Select random sentences if we have enough
+        if len(sentences) >= num_phrases:
+            selected = random.sample(sentences, num_phrases)
+        else:
+            selected = sentences
+
+        # Extract shorter phrases from each sentence
+        phrases = []
+        for sentence in selected:
+            words = sentence.split()
+            if len(words) <= 5:
+                phrases.append(sentence)
+            else:
+                # Extract a 3-5 word phrase from somewhere in the sentence
+                start = random.randint(0, max(0, len(words) - 5))
+                length = random.randint(3, min(5, len(words) - start))
+                phrase = " ".join(words[start:start + length])
+                phrases.append(phrase)
+
+        return phrases
 
 
 class StoryCreationWizard(QWidget):
@@ -4134,8 +4166,7 @@ class LaceAIdventureGUI(QMainWindow):
             return False
 
     def process_input(self):
-        """Process the player input"""
-        self.generation_in_progress = True
+        """Process the player input with the new direct update system"""
         player_input = self.input_field.text().strip()
 
         if not player_input:
@@ -4194,7 +4225,7 @@ class LaceAIdventureGUI(QMainWindow):
         self.generation_thread.start()
 
     def finalize_response(self, player_input, response):
-        """Finalize the response from the model with immersion protection and character detection"""
+        """Finalize the response with dynamic quest updates"""
         self.generation_in_progress = False
 
         # Check for out-of-character AI responses
@@ -4205,7 +4236,7 @@ class LaceAIdventureGUI(QMainWindow):
             "Error:", "Player:"
         ]
 
-        # Filter out non-immersive responses but preserve DM: for character detection
+        # Filter out non-immersive responses
         filtered_response = response
         for phrase in ai_phrases:
             if phrase in filtered_response.lower():
@@ -4215,28 +4246,105 @@ class LaceAIdventureGUI(QMainWindow):
         # Add a newline
         self.text_display.stream_text("\n", "dm_text")
 
-        # Create the thread and worker for background processing
-        self.update_thread = QThread()
-        self.update_worker = GameStateUpdateWorker(self.game_state, player_input, response, self.model)
-        self.update_worker.moveToThread(self.update_thread)
+        # Process game state updates including dynamic quests
+        try:
+            # Create a GameStateManager instance
+            manager = rpg_engine.GameStateManager(self.game_state)
 
-        # Connect signals and slots
-        self.update_thread.started.connect(self.update_worker.update_game_state)
-        self.update_worker.update_complete.connect(self.handle_game_state_update)
-        self.update_worker.update_complete.connect(self.update_thread.quit)
-        self.update_thread.finished.connect(self.update_thread.deleteLater)
-        self.update_thread.finished.connect(self.update_worker.deleteLater)
+            # Process direct update commands and get cleaned response
+            cleaned_response = manager.process_update_commands(filtered_response)
 
-        # Process characters immediately
-        self.process_and_update_characters()
+            # Update game state with cleaned response
+            self.game_state = rpg_engine.update_game_state(self.game_state, player_input, cleaned_response, self.model)
+
+            # Check for quest progression in player input
+            self.check_player_initiated_quests(player_input)
+
+            # Update the journal with the updated game state
+            if hasattr(self, 'journal') and self.journal is not None:
+                self.journal.update_journal(self.game_state, detect_changes=True)
+
+            # Show any important updates
+            if 'important_updates' in self.game_state and self.game_state['important_updates']:
+                for update in self.game_state['important_updates']:
+                    self.text_display.append_system_message(update)
+
+                # Clear important updates after displaying them
+                self.game_state['important_updates'] = []
+
+        except Exception as e:
+            print(f"Error processing game state updates: {e}")
+            import traceback
+            traceback.print_exc()
 
         # Enable the input field
         self.input_field.setEnabled(True)
         self.send_button.setEnabled(True)
         self.input_field.setFocus()
 
-        # Start the thread
-        self.update_thread.start()
+    def check_player_initiated_quests(self, player_input):
+        """Check if player input suggests a new quest or quest completion"""
+        # Only run if we have a game state
+        if not self.game_state:
+            return
+
+        # Look for quest initiation phrases
+        quest_phrases = [
+            "i want to", "i'd like to", "i will", "i'm going to",
+            "let's", "we should", "can i", "i need to"
+        ]
+
+        quest_actions = [
+            "find", "search for", "look for", "hunt", "kill", "defeat",
+            "rescue", "save", "help", "assist", "investigate", "explore",
+            "deliver", "bring", "take", "retrieve", "gather", "collect"
+        ]
+
+        # Check if the player is trying to start a quest
+        player_input_lower = player_input.lower()
+
+        if any(phrase in player_input_lower for phrase in quest_phrases) and any(
+                action in player_input_lower for action in quest_actions):
+            # This might be a quest proposal from the player
+            # Extract the potential quest
+            for phrase in quest_phrases:
+                if phrase in player_input_lower:
+                    potential_quest = player_input_lower.split(phrase, 1)[1].strip()
+
+                    # Check if it's substantial enough to be a quest
+                    if len(potential_quest) > 10:
+                        # Create a suitable quest name
+                        words = potential_quest.split()
+                        quest_name = ""
+
+                        # Take the first 3-6 words, capitalizing each
+                        for i, word in enumerate(words[:min(6, len(words))]):
+                            if word in ["the", "a", "an", "to", "for", "of", "in", "on", "at", "by"] and i > 0:
+                                quest_name += word + " "
+                            else:
+                                quest_name += word.capitalize() + " "
+
+                        quest_name = quest_name.strip()
+
+                        # Check if this quest already exists
+                        quest_exists = False
+                        for quest in self.game_state['quests'].values():
+                            if quest_name.lower() in quest['name'].lower() or quest[
+                                'name'].lower() in quest_name.lower():
+                                quest_exists = True
+                                break
+
+                        # If it's a new quest, propose adding it
+                        if not quest_exists and len(quest_name) > 3:
+                            # Create the game state manager
+                            manager = rpg_engine.GameStateManager(self.game_state)
+
+                            # Try to add the new player-initiated quest
+                            if manager.add_quest(quest_name, f"Quest to {potential_quest}.", "player"):
+                                # Notify the player
+                                self.text_display.append_system_message(f"New quest added: {quest_name}")
+
+                        break
 
     def extract_characters_from_recent_responses(self):
         """Extract character information from recent DM responses"""
