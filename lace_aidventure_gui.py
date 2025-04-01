@@ -1,48 +1,19 @@
 ﻿import sys
 import random
-import os
-
 import re
-
-import hashlib
-
-import json
-
-import glob
-
-from functools import lru_cache
-
-import json
-
-import requests
-
-from typing import Any, Dict, List, Optional, Union, Iterator
-
-
-
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QTabWidget, QWidget, QVBoxLayout,
 
                              QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QLabel,
 
-                             QComboBox, QListWidget, QMessageBox, QFormLayout, QSpinBox,
+                             QComboBox, QListWidget, QMessageBox, QFormLayout,
 
                              QSplitter, QScrollArea, QFrame, QDialog, QDialogButtonBox,
 
-                             QCheckBox, QTextBrowser, QGroupBox, QSlider)
+                             QTextBrowser, QGroupBox, QSlider)
 
 from PyQt6.QtGui import QFont, QColor, QTextCursor, QTextCharFormat
-
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QObject
-
-
-
-# Import your existing game logic - adjust import paths as needed
-
-# We're assuming the rpg_engine.py file is in the same directory
-
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject
 import rpg_engine
-
-
 
 # Constants - Lavender Theme
 
@@ -61,15 +32,9 @@ BG_COLOR = "#F5F0FF"  # Light lavender background
 ACCENT_COLOR = "#8046CC"  # Darker accent color for buttons
 
 
-
-
-
 class StreamingTextDisplay(QTextEdit):
 
     """Widget for displaying streaming text with typewriter effect"""
-
-
-
     def __init__(self, parent=None):
 
         super().__init__(parent)
@@ -77,8 +42,6 @@ class StreamingTextDisplay(QTextEdit):
         self.setReadOnly(True)
 
         self.setMinimumHeight(300)
-
-
 
         # Create text formats with the lavender colors
 
@@ -203,6 +166,69 @@ class StreamingTextDisplay(QTextEdit):
         self.ensureCursorVisible()
 
 
+def extract_key_phrases(text, num_phrases=3):
+    """Extract a few distinctive phrases from the text to highlight what to avoid"""
+    # Simple extraction of 2-3 word phrases
+    words = text.split()
+    if len(words) < 4:
+        return text
+
+    # Get some random 2-3 word phrases
+    phrases = []
+    for _ in range(min(num_phrases, len(words) // 3)):
+        start = random.randint(0, len(words) - 3)
+        length = random.randint(2, 3)
+        phrase = " ".join(words[start:start + length])
+        phrases.append(phrase)
+
+    return ", ".join(phrases)
+
+
+def adjust_params_for_variety(repetition_score, base_temp=0.7, max_temp=1.2):
+    """Calculate adjusted temperature based on repetition score"""
+    # Scale between base_temp and max_temp based on repetition score
+    if repetition_score > 0.5:
+        # The more repetitive, the higher the temperature
+        adjusted_temp = min(base_temp + (repetition_score - 0.5) * 2 * (max_temp - base_temp), max_temp)
+        return adjusted_temp
+    return base_temp
+
+
+def enhance_prompt_for_variety(base_prompt, previous_response=None):
+    """Add anti-repetition instructions to the prompt"""
+    variety_instructions = """
+    ADDITIONAL ANTI-REPETITION REQUIREMENTS:
+    - AVOID ALL REPETITION: Do not reuse words, phrases, or sentence structures from your previous responses
+    - VARIETY IS ESSENTIAL: Use completely different descriptive language than you've used before
+    - FRESH PERSPECTIVES: Describe scenes and characters from new angles and perspectives
+    - DIVERSE VOCABULARY: Consciously use vocabulary that hasn't appeared in recent exchanges
+    - NEW SENSORY DETAILS: Focus on different senses (sound, smell, touch) than in previous descriptions
+    - ALTERNATIVE NARRATIVE STYLES: Vary between direct description, metaphorical language, and dialogue
+    - DOUBLE CHECK BEFORE OUTPUT: Before pasting your output, please ensure that the repetition has been resolved
+    """
+
+    if previous_response:
+        key_phrases = extract_key_phrases(previous_response)
+        if key_phrases:
+            variety_instructions += f"""
+            IMPORTANT: Your last response used phrases like "{key_phrases}". 
+            DO NOT use these words or similar phrasings again. Find completely new ways to express yourself.
+            """
+
+    # Insert these instructions in an appropriate place in the base prompt
+    # For example, after the "CRITICAL OUTPUT REQUIREMENTS" section
+    insertion_point = "CRITICAL OUTPUT REQUIREMENTS:"
+    parts = base_prompt.split(insertion_point)
+
+    if len(parts) == 2:
+        enhanced_prompt = parts[0] + insertion_point + parts[1].split("\n", 1)[
+            0] + "\n" + variety_instructions + "\n" + parts[1].split("\n", 1)[1]
+        return enhanced_prompt
+
+    # Fallback: just append the instructions
+    return base_prompt + "\n" + variety_instructions
+
+
 class ModelGenerationThread(QThread):
     """Thread for generating text from the model to prevent UI freezing"""
 
@@ -226,66 +252,6 @@ class ModelGenerationThread(QThread):
                 if line.startswith("DM:"):
                     self.last_response = line[3:].strip()
                     break
-
-    def extract_key_phrases(self, text, num_phrases=3):
-        """Extract a few distinctive phrases from the text to highlight what to avoid"""
-        # Simple extraction of 2-3 word phrases
-        words = text.split()
-        if len(words) < 4:
-            return text
-
-        # Get some random 2-3 word phrases
-        phrases = []
-        for _ in range(min(num_phrases, len(words) // 3)):
-            start = random.randint(0, len(words) - 3)
-            length = random.randint(2, 3)
-            phrase = " ".join(words[start:start + length])
-            phrases.append(phrase)
-
-        return ", ".join(phrases)
-
-    def enhance_prompt_for_variety(self, base_prompt, previous_response=None):
-        """Add anti-repetition instructions to the prompt"""
-        variety_instructions = """
-        ADDITIONAL ANTI-REPETITION REQUIREMENTS:
-        - AVOID ALL REPETITION: Do not reuse words, phrases, or sentence structures from your previous responses
-        - VARIETY IS ESSENTIAL: Use completely different descriptive language than you've used before
-        - FRESH PERSPECTIVES: Describe scenes and characters from new angles and perspectives
-        - DIVERSE VOCABULARY: Consciously use vocabulary that hasn't appeared in recent exchanges
-        - NEW SENSORY DETAILS: Focus on different senses (sound, smell, touch) than in previous descriptions
-        - ALTERNATIVE NARRATIVE STYLES: Vary between direct description, metaphorical language, and dialogue
-        - DOUBLE CHECK BEFORE OUTPUT: Before pasting your output, please ensure that the repetition has been resolved
-        """
-
-        if previous_response:
-            key_phrases = self.extract_key_phrases(previous_response)
-            if key_phrases:
-                variety_instructions += f"""
-                IMPORTANT: Your last response used phrases like "{key_phrases}". 
-                DO NOT use these words or similar phrasings again. Find completely new ways to express yourself.
-                """
-
-        # Insert these instructions in an appropriate place in the base prompt
-        # For example, after the "CRITICAL OUTPUT REQUIREMENTS" section
-        insertion_point = "CRITICAL OUTPUT REQUIREMENTS:"
-        parts = base_prompt.split(insertion_point)
-
-        if len(parts) == 2:
-            enhanced_prompt = parts[0] + insertion_point + parts[1].split("\n", 1)[
-                0] + "\n" + variety_instructions + "\n" + parts[1].split("\n", 1)[1]
-            return enhanced_prompt
-
-        # Fallback: just append the instructions
-        return base_prompt + "\n" + variety_instructions
-
-    def adjust_params_for_variety(self, repetition_score, base_temp=0.7, max_temp=1.2):
-        """Calculate adjusted temperature based on repetition score"""
-        # Scale between base_temp and max_temp based on repetition score
-        if repetition_score > 0.5:
-            # The more repetitive, the higher the temperature
-            adjusted_temp = min(base_temp + (repetition_score - 0.5) * 2 * (max_temp - base_temp), max_temp)
-            return adjusted_temp
-        return base_temp
 
     def run(self):
         """Run the model generation with anti-repetition mechanisms"""
@@ -351,9 +317,9 @@ class ModelGenerationThread(QThread):
     """
             # Enhance the prompt with anti-repetition instructions
             if self.last_response:
-                formatted_prompt = self.enhance_prompt_for_variety(formatted_prompt, self.last_response)
+                formatted_prompt = enhance_prompt_for_variety(formatted_prompt, self.last_response)
             else:
-                formatted_prompt = self.enhance_prompt_for_variety(formatted_prompt)
+                formatted_prompt = enhance_prompt_for_variety(formatted_prompt)
 
             # Check repetition level of last few responses
             repetition_score = 0
@@ -363,7 +329,7 @@ class ModelGenerationThread(QThread):
             # Adjust temperature based on repetition
             original_temp = self.model.temperature
             if repetition_score > 0.5:
-                adjusted_temp = self.adjust_params_for_variety(repetition_score,
+                adjusted_temp = adjust_params_for_variety(repetition_score,
                                                                base_temp=original_temp,
                                                                max_temp=min(original_temp + 0.5, 1.2))
                 print(f"Increasing temperature from {original_temp} to {adjusted_temp} due to repetition")
@@ -411,6 +377,7 @@ class StoryCreationWizard(QWidget):
 
         super().__init__(parent)
 
+        self.model_combo = None
         self.player_input = {}
 
         self.npcs = []
@@ -3983,7 +3950,7 @@ class LaceAIdventureGUI(QMainWindow):
 
         # Extract the file name from the text
 
-        match = re.search(r"\[(.*?)\]", text)
+        match = re.search(r"\[(.*?)]", text)
 
         if match:
 
@@ -4019,7 +3986,7 @@ class LaceAIdventureGUI(QMainWindow):
 
         # Extract the file name and title from the text
 
-        match = re.search(r"(.*?) \[(.*?)\]", text)
+        match = re.search(r"(.*?) \[(.*?)]", text)
 
         if match:
 
